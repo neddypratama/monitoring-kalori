@@ -25,7 +25,7 @@ Assert::test('rejects missing API key and invalid image inputs', function (): vo
 
 Assert::test('parses Gemini Vision JSON output (including fenced JSON) into normalized food items and totals', function (): void {
     $mockPost = static function (string $url, array $payload): array {
-        Assert::true(str_contains($url, 'gemini-2.5-flash:generateContent'), 'Unexpected Gemini URL');
+        Assert::true(str_contains($url, 'gemini-3.8-flash:generateContent'), 'Unexpected Gemini URL');
         Assert::true(isset($payload['contents'][0]['parts'][1]['inline_data']['data']), 'Missing inline_data image');
 
         $aiJson = json_encode([
@@ -70,9 +70,10 @@ Assert::test('parses Gemini Vision JSON output (including fenced JSON) into norm
         ];
     };
 
+    // Passing retired gemini-2.0-flash automatically upgrades to default gemini-3.8-flash
     $res = GeminiFoodService::analyzeFoodPhoto(
         'AIzaFakeKey123456',
-        'gemini-2.5-flash',
+        'gemini-2.0-flash',
         base64_encode('fake-jpeg-bytes'),
         'image/jpeg',
         'nasi normal',
@@ -85,6 +86,55 @@ Assert::test('parses Gemini Vision JSON output (including fenced JSON) into norm
     Assert::approx(29.1, (float) $res['total_protein'], 0.1);
     Assert::approx(46.5, (float) $res['total_carbs'], 0.1);
     Assert::approx(16.0, (float) $res['total_fat'], 0.1);
+});
+
+Assert::test('auto-falls back to default model if selected model returns 404 / no longer available', function (): void {
+    $calls = [];
+    $mockPost = static function (string $url, array $payload) use (&$calls): array {
+        $calls[] = $url;
+        if (str_contains($url, 'gemini-2.5-flash:generateContent')) {
+            return [
+                'ok' => true,
+                'status' => 404,
+                'body' => json_encode(['error' => ['message' => 'This model models/gemini-2.5-flash is no longer available.']]),
+                'error' => '',
+            ];
+        }
+        $aiJson = json_encode([
+            'meal_summary' => 'Kerupuk Putih',
+            'confidence' => 'tinggi',
+            'notes' => '1 keping kerupuk putih',
+            'items' => [[
+                'name' => 'Kerupuk Putih',
+                'unit' => 'keping',
+                'quantity' => 1,
+                'estimated_grams' => 15,
+                'calories' => 75,
+                'protein' => 0.8,
+                'carbs' => 10.5,
+                'fat' => 3.4,
+            ]],
+        ]);
+        return [
+            'ok' => true,
+            'status' => 200,
+            'body' => json_encode(['candidates' => [['content' => ['parts' => [['text' => $aiJson]]]]]]),
+            'error' => '',
+        ];
+    };
+
+    $res = GeminiFoodService::analyzeFoodPhoto(
+        'AIzaFakeKey123456',
+        'gemini-2.5-flash',
+        base64_encode('fake-jpeg-bytes'),
+        'image/jpeg',
+        'kerupuk putih 1 keping',
+        $mockPost
+    );
+
+    Assert::equals(2, count($calls));
+    Assert::true(str_contains($calls[1], 'gemini-3.8-flash:generateContent'));
+    Assert::equals(75, (int) $res['total_calories']);
 });
 
 Assert::test('Router saves profile program_duration_days and protects admin/settings with RBAC', function (): void {

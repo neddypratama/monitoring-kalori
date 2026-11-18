@@ -11,7 +11,7 @@ interface AdminSettingsPageProps {
 export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }) => {
   const [settings, setSettings] = useState<AdminAiSettings | null>(null);
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [model, setModel] = useState('gemini-3.8-flash');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -148,10 +148,10 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
                 onChange={(e) => setModel(e.target.value)}
                 className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
-                {(settings?.allowed_models ?? ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']).map(
+                {(settings?.allowed_models ?? ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash']).map(
                   (m) => (
                     <option key={m} value={m}>
-                      {m} {m === 'gemini-2.5-flash' ? '(Disarankan — Cepat & Akurat)' : ''}
+                      {m} {m === 'gemini-3.8-flash' ? '(Disarankan — Terbaru, Cepat & Akurat)' : ''}
                     </option>
                   )
                 )}

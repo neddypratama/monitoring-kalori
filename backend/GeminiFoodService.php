@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 final class GeminiFoodService
 {
-    public const DEFAULT_MODEL = 'gemini-2.5-flash';
-    public const ALLOWED_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
+    public const DEFAULT_MODEL = 'gemini-3.8-flash';
+    public const ALLOWED_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
     public const ALLOWED_MIMES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     public const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -135,6 +135,16 @@ PROMPT;
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$safeModel}:generateContent?key=" . rawurlencode($key);
         $httpPost = $poster ?? [self::class, 'curlPostJson'];
         $res = $httpPost($url, $payload);
+
+        // Auto-fallback to DEFAULT_MODEL if selected model is deprecated/unavailable (HTTP 404/410 or "no longer available")
+        if ((empty($res['ok']) || (int) ($res['status'] ?? 0) >= 400) && $safeModel !== self::DEFAULT_MODEL) {
+            $status = (int) ($res['status'] ?? 0);
+            $rawBody = (string) ($res['body'] ?? '');
+            if ($status === 404 || $status === 410 || stripos($rawBody, 'no longer available') !== false || stripos($rawBody, 'not found') !== false) {
+                $fallbackUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' . self::DEFAULT_MODEL . ':generateContent?key=' . rawurlencode($key);
+                $res = $httpPost($fallbackUrl, $payload);
+            }
+        }
 
         if (empty($res['ok']) || (int) ($res['status'] ?? 0) >= 400) {
             $status = (int) ($res['status'] ?? 0);
