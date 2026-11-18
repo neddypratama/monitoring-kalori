@@ -169,4 +169,120 @@ final class Calculators
             'distance_meters' => $distanceMeters,
         ];
     }
+
+    /**
+     * Calculate balanced daily food intake target + daily exercise burn suggestion
+     * for reaching $targetWeightKg within $durationDays.
+     *
+     * @return ?array<string, mixed>
+     */
+    public static function calculateDietPlan(
+        float $currentWeightKg,
+        ?float $targetWeightKg,
+        ?int $durationDays,
+        float $tdee,
+        string $gender,
+        string $goalType,
+        ?string $startDate = null,
+        ?string $asOfDate = null
+    ): ?array {
+        if ($targetWeightKg === null || $durationDays === null || $durationDays <= 0 || $currentWeightKg <= 0) {
+            return null;
+        }
+
+        $safeFloor = $gender === 'female' ? 1200 : 1500;
+        $todayStr = $asOfDate ?? date('Y-m-d');
+        $startStr = ($startDate !== null && $startDate !== '') ? $startDate : $todayStr;
+
+        $startDt = new DateTimeImmutable($startStr);
+        $todayDt = new DateTimeImmutable($todayStr);
+        $endDt = $startDt->modify('+' . max(1, $durationDays - 1) . ' days');
+
+        $daysElapsed = max(1, (int) $startDt->diff($todayDt)->format('%r%a') + 1);
+        if ($daysElapsed > $durationDays) {
+            $daysElapsed = $durationDays;
+        }
+        $daysRemaining = max(0, $durationDays - $daysElapsed);
+        // Use remaining days (at least 1) when recalculating ongoing pace, or full duration on day 1
+        $effectiveDays = $daysRemaining > 0 ? ($daysRemaining + 1) : 1;
+        // On day 1 ($daysElapsed === 1), $effectiveDays equals $durationDays
+        if ($daysElapsed === 1) {
+            $effectiveDays = $durationDays;
+        }
+
+        $weightDiffKg = round($targetWeightKg - $currentWeightKg, 2);
+        $absDiff = abs($weightDiffKg);
+        $totalCaloriesNeeded = $absDiff * 7700.0;
+        $dailyGap = (int) round($totalCaloriesNeeded / $effectiveDays);
+        $weeklyRateKg = round(($absDiff / $effectiveDays) * 7.0, 2);
+
+        $isAggressive = false;
+        $recommendedMinDays = $durationDays;
+        $direction = 'maintain';
+        $suggestedFood = (int) round($tdee);
+        $suggestedExercise = 200;
+        $advice = 'Target berat badan sudah tercapai! Jaga asupan sesuai TDEE dan olahraga ringan rutin.';
+
+        if ($weightDiffKg < -0.05) {
+            $direction = 'lose';
+            $foodCut = (int) round($dailyGap * 0.65);
+            $rawFood = (int) round($tdee - $foodCut);
+
+            if ($rawFood < $safeFloor) {
+                $suggestedFood = $safeFloor;
+                $actualFoodCut = max(0, (int) round($tdee - $safeFloor));
+                $suggestedExercise = max(0, $dailyGap - $actualFoodCut);
+            } else {
+                $suggestedFood = $rawFood;
+                $suggestedExercise = max(0, $dailyGap - $foodCut);
+            }
+
+            $isAggressive = ($weeklyRateKg > 1.0) || ($dailyGap > 1000) || ($suggestedExercise > 600);
+            $recommendedMinDays = (int) max(7, ceil(($absDiff * 7.0) / 0.75));
+            $advice = $isAggressive
+                ? "Target turun {$absDiff} kg dalam {$effectiveDays} hari cukup ketat ({$weeklyRateKg} kg/minggu). Pertimbangkan durasi minimal sekitar {$recommendedMinDays} hari agar lebih sehat dan berkelanjutan."
+                : "Untuk turun {$absDiff} kg tepat waktu, kombinasikan makan sekitar {$suggestedFood} kkal/hari dan bakar sekitar {$suggestedExercise} kkal/hari lewat olahraga.";
+        } elseif ($weightDiffKg > 0.05) {
+            $direction = 'gain';
+            $suggestedExercise = 150; // Latihan beban ringan untuk membentuk otot
+            $suggestedFood = (int) round($tdee + $dailyGap + $suggestedExercise);
+            $isAggressive = $weeklyRateKg > 0.5;
+            $recommendedMinDays = (int) max(14, ceil(($absDiff * 7.0) / 0.4));
+            $advice = $isAggressive
+                ? "Target naik {$absDiff} kg dalam {$effectiveDays} hari cukup cepat ({$weeklyRateKg} kg/minggu). Disarankan durasi minimal {$recommendedMinDays} hari agar kenaikan lebih dominan massa otot."
+                : "Untuk naik {$absDiff} kg secara sehat, konsumsi sekitar {$suggestedFood} kkal/hari diimbangi latihan kekuatan (~{$suggestedExercise} kkal/hari).";
+        } elseif ($goalType === 'lose') {
+            $direction = 'maintain';
+        }
+
+        // Practical exercise equivalents based on current body weight
+        // Brisk walk: MET 4.3, speed 6.0 km/h; Jogging: MET 8.3
+        $walkKcalPerMin = (4.3 * 3.5 * $currentWeightKg) / 200.0;
+        $jogKcalPerMin = (8.3 * 3.5 * $currentWeightKg) / 200.0;
+        $walkMinEquiv = $suggestedExercise > 0 && $walkKcalPerMin > 0 ? (int) round($suggestedExercise / $walkKcalPerMin) : 0;
+        $walkKmEquiv = $walkMinEquiv > 0 ? round(($walkMinEquiv / 60.0) * 6.0, 1) : 0.0;
+        $jogMinEquiv = $suggestedExercise > 0 && $jogKcalPerMin > 0 ? (int) round($suggestedExercise / $jogKcalPerMin) : 0;
+
+        return [
+            'direction' => $direction,
+            'duration_days' => $durationDays,
+            'start_date' => $startStr,
+            'target_end_date' => $endDt->format('Y-m-d'),
+            'days_elapsed' => $daysElapsed,
+            'days_remaining' => $daysRemaining,
+            'effective_days' => $effectiveDays,
+            'weight_diff_kg' => $weightDiffKg,
+            'total_calories_needed' => (int) round($totalCaloriesNeeded),
+            'daily_gap_kcal' => $dailyGap,
+            'weekly_rate_kg' => $weeklyRateKg,
+            'suggested_food_calories' => $suggestedFood,
+            'suggested_exercise_burn' => $suggestedExercise,
+            'is_aggressive' => $isAggressive,
+            'recommended_min_days' => $recommendedMinDays,
+            'walk_min_equiv' => $walkMinEquiv,
+            'walk_km_equiv' => $walkKmEquiv,
+            'jog_min_equiv' => $jogMinEquiv,
+            'advice' => $advice,
+        ];
+    }
 }

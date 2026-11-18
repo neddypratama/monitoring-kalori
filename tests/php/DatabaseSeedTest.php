@@ -11,11 +11,11 @@ $tempDb = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'kaloriku_seed_test_' . uni
 try {
     $pdo = Database::connect($tempDb);
 
-    Assert::test('creates all 11 required multi-user SQLite tables', function () use ($pdo): void {
+    Assert::test('creates all 12 required multi-user SQLite tables', function () use ($pdo): void {
         $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")->fetchAll(PDO::FETCH_COLUMN);
         sort($tables);
         $expected = [
-            'activities', 'activity_logs', 'audit_logs', 'food_logs', 'foods',
+            'activities', 'activity_logs', 'app_settings', 'audit_logs', 'food_logs', 'foods',
             'roles', 'user_favorites', 'user_profile', 'user_sessions', 'users', 'weight_logs',
         ];
         Assert::equals($expected, $tables);

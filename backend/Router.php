@@ -6,6 +6,7 @@ require_once __DIR__ . '/AnalyticsService.php';
 require_once __DIR__ . '/AuthService.php';
 require_once __DIR__ . '/AuditService.php';
 require_once __DIR__ . '/OpenFoodFactsService.php';
+require_once __DIR__ . '/GeminiFoodService.php';
 
 final class Router
 {
@@ -48,6 +49,7 @@ final class Router
                 'foods' => self::handleFoods($pdo, $method, $authUser, $query, $body),
                 'foods/favorite' => self::handleToggleFavorite($pdo, $method, $authUser, $query, 'food'),
                 'foods/openfoodfacts' => self::handleOpenFoodFactsSearch($method, $query),
+                'foods/analyze-photo' => self::handleAnalyzeFoodPhoto($pdo, $method, $authUser, $body),
                 'activities' => self::handleActivities($pdo, $method, $authUser, $query, $body),
                 'activities/favorite' => self::handleToggleFavorite($pdo, $method, $authUser, $query, 'activity'),
                 'logs/day' => self::handleLogsDay($pdo, $method, $userId, $query),
@@ -60,6 +62,7 @@ final class Router
                 'admin/users' => self::handleAdminUsers($pdo, $method, $authUser, $query, $body),
                 'admin/user-overview' => self::handleAdminUserOverview($pdo, $method, $authUser, $query),
                 'admin/audit-logs' => self::handleAdminAuditLogs($pdo, $method, $authUser, $query),
+                'admin/settings' => self::handleAdminSettings($pdo, $method, $authUser, $body),
                 default => self::fail(404, "Endpoint '{$route}' tidak ditemukan."),
             };
         } catch (InvalidArgumentException $e) {
@@ -233,12 +236,31 @@ final class Router
             $manualTarget = (int) round($parsedTarget);
         }
 
+        $durationRaw = array_key_exists('program_duration_days', $body)
+            ? $body['program_duration_days']
+            : ($existing['program_duration_days'] ?? null);
+        $durationDays = null;
+        if ($durationRaw !== null && $durationRaw !== '') {
+            $parsedDur = Calculators::parseNumber($durationRaw);
+            if ($parsedDur === null || (int) $parsedDur < 7 || (int) $parsedDur > 730) {
+                throw new InvalidArgumentException('Durasi program diet harus antara 7 hingga 730 hari (2 tahun).');
+            }
+            $durationDays = (int) round($parsedDur);
+        }
+        $programStartRaw = array_key_exists('program_start_date', $body)
+            ? $body['program_start_date']
+            : ($existing['program_start_date'] ?? null);
+        $programStartDate = null;
+        if ($durationDays !== null) {
+            $programStartDate = self::validateDate((string) ($programStartRaw ?? ''), date('Y-m-d'));
+        }
+
         if (!$existing) {
             $ins = $pdo->prepare(
-                'INSERT INTO user_profile (user_id, name, gender, age, height_cm, initial_weight_kg, target_weight_kg, activity_level, goal_type, daily_calorie_target, is_manual_target)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO user_profile (user_id, name, gender, age, height_cm, initial_weight_kg, target_weight_kg, activity_level, goal_type, daily_calorie_target, is_manual_target, program_duration_days, program_start_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            $ins->execute([$userId, $name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual]);
+            $ins->execute([$userId, $name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual, $durationDays, $programStartDate]);
 
             $today = self::validateDate((string) ($body['initial_date'] ?? ''), date('Y-m-d'));
             $wStmt = $pdo->prepare(
@@ -247,17 +269,18 @@ final class Router
             );
             $wStmt->execute([$userId, $today, round($initialWeight, 2)]);
 
-            AuditService::record($pdo, $userId, (string) $authUser['username'], 'create_profile', 'profile', $userId, $userId, "BB {$initialWeight} kg, TB {$heightCm} cm");
+            AuditService::record($pdo, $userId, (string) $authUser['username'], 'create_profile', 'profile', $userId, $userId, "BB {$initialWeight} kg, TB {$heightCm} cm" . ($durationDays ? ", durasi {$durationDays} hari" : ''));
         } else {
             $upd = $pdo->prepare(
                 "UPDATE user_profile
                  SET name = ?, gender = ?, age = ?, height_cm = ?, initial_weight_kg = ?, target_weight_kg = ?,
                      activity_level = ?, goal_type = ?, daily_calorie_target = ?, is_manual_target = ?,
+                     program_duration_days = ?, program_start_date = ?,
                      updated_at = datetime('now', 'localtime')
                  WHERE user_id = ?"
             );
-            $upd->execute([$name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual, $userId]);
-            AuditService::record($pdo, $userId, (string) $authUser['username'], 'update_profile', 'profile', $userId, $userId, "Perbarui profil diet (BB awal {$initialWeight} kg, TB {$heightCm} cm)");
+            $upd->execute([$name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual, $durationDays, $programStartDate, $userId]);
+            AuditService::record($pdo, $userId, (string) $authUser['username'], 'update_profile', 'profile', $userId, $userId, "Perbarui profil diet (BB awal {$initialWeight} kg, TB {$heightCm} cm" . ($durationDays ? ", durasi {$durationDays} hari" : '') . ')');
         }
 
         $get = $pdo->prepare('SELECT * FROM user_profile WHERE user_id = ? LIMIT 1');
@@ -363,6 +386,93 @@ final class Router
         } catch (RuntimeException $e) {
             return self::fail(502, $e->getMessage());
         }
+    }
+
+    private static function handleAnalyzeFoodPhoto(PDO $pdo, string $method, array $authUser, array $body): array
+    {
+        if ($method !== 'POST') {
+            return self::fail(405, 'Metode HTTP tidak didukung.');
+        }
+        $apiKey = GeminiFoodService::getApiKey($pdo);
+        $model = GeminiFoodService::getModel($pdo);
+        $imageBase64 = (string) ($body['image_base64'] ?? '');
+        $mimeType = (string) ($body['mime_type'] ?? 'image/jpeg');
+        $hint = (string) ($body['hint'] ?? '');
+
+        try {
+            $result = GeminiFoodService::analyzeFoodPhoto($apiKey, $model, $imageBase64, $mimeType, $hint);
+            $userId = (int) $authUser['id'];
+            AuditService::record(
+                $pdo,
+                $userId,
+                (string) $authUser['username'],
+                'analyze_food_photo',
+                'food',
+                null,
+                $userId,
+                "Analisis foto AI: {$result['meal_summary']} ({$result['total_calories']} kkal, " . count($result['items']) . ' item)'
+            );
+            return self::ok($result);
+        } catch (RuntimeException $e) {
+            return self::fail(502, $e->getMessage());
+        }
+    }
+
+    private static function handleAdminSettings(PDO $pdo, string $method, array $authUser, array $body): array
+    {
+        if (!AuthService::hasPermission($authUser, 'can_manage_roles') && !AuthService::hasPermission($authUser, 'can_manage_users')) {
+            return self::fail(403, 'Anda tidak memiliki izin untuk mengakses pengaturan sistem.');
+        }
+
+        if ($method === 'GET') {
+            $key = GeminiFoodService::getApiKey($pdo);
+            return self::ok([
+                'has_gemini_key' => $key !== '',
+                'gemini_key_masked' => GeminiFoodService::maskKey($key),
+                'gemini_model' => GeminiFoodService::getModel($pdo),
+                'allowed_models' => GeminiFoodService::ALLOWED_MODELS,
+            ]);
+        }
+
+        if ($method !== 'POST' && $method !== 'PUT') {
+            return self::fail(405, 'Metode HTTP tidak didukung.');
+        }
+
+        $actorId = (int) $authUser['id'];
+        $actorName = (string) $authUser['username'];
+
+        $upsert = $pdo->prepare(
+            "INSERT INTO app_settings (setting_key, setting_value, updated_at)
+             VALUES (?, ?, datetime('now', 'localtime'))
+             ON CONFLICT(setting_key) DO UPDATE SET
+                setting_value = excluded.setting_value,
+                updated_at = datetime('now', 'localtime')"
+        );
+
+        if (array_key_exists('gemini_api_key', $body)) {
+            $newKey = trim((string) $body['gemini_api_key']);
+            if ($newKey !== '' || !empty($body['clear_gemini_key'])) {
+                $upsert->execute(['gemini_api_key', !empty($body['clear_gemini_key']) ? '' : $newKey]);
+            }
+        }
+
+        if (array_key_exists('gemini_model', $body)) {
+            $model = trim((string) $body['gemini_model']);
+            if (!in_array($model, GeminiFoodService::ALLOWED_MODELS, true)) {
+                throw new InvalidArgumentException('Model Gemini tidak valid.');
+            }
+            $upsert->execute(['gemini_model', $model]);
+        }
+
+        AuditService::record($pdo, $actorId, $actorName, 'update_settings', 'settings', null, null, 'Memperbarui pengaturan Gemini Vision AI');
+
+        $savedKey = GeminiFoodService::getApiKey($pdo);
+        return self::ok([
+            'has_gemini_key' => $savedKey !== '',
+            'gemini_key_masked' => GeminiFoodService::maskKey($savedKey),
+            'gemini_model' => GeminiFoodService::getModel($pdo),
+            'allowed_models' => GeminiFoodService::ALLOWED_MODELS,
+        ]);
     }
 
     private static function handleActivities(PDO $pdo, string $method, array $authUser, array $query, array $body): array
@@ -1300,6 +1410,8 @@ final class Router
             'goal_type' => (string) $r['goal_type'],
             'daily_calorie_target' => $r['daily_calorie_target'] !== null ? (int) $r['daily_calorie_target'] : null,
             'is_manual_target' => (int) $r['is_manual_target'] === 1,
+            'program_duration_days' => isset($r['program_duration_days']) && $r['program_duration_days'] !== null ? (int) $r['program_duration_days'] : null,
+            'program_start_date' => isset($r['program_start_date']) && $r['program_start_date'] !== '' ? (string) $r['program_start_date'] : null,
             'created_at' => (string) $r['created_at'],
             'updated_at' => (string) $r['updated_at'],
         ];

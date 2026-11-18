@@ -38,9 +38,31 @@ final class AnalyticsService
         $tdee = Calculators::calculateTdee($bmr, $activityLevel);
         $recommended = Calculators::calculateRecommendedCalories($tdee, $goalType, $gender);
 
+        $targetWeight = isset($profile['target_weight_kg']) && $profile['target_weight_kg'] !== null
+            ? (float) $profile['target_weight_kg']
+            : null;
+        $durationDays = isset($profile['program_duration_days']) && $profile['program_duration_days'] !== null
+            ? (int) $profile['program_duration_days']
+            : null;
+        $programStartDate = isset($profile['program_start_date']) && $profile['program_start_date'] !== ''
+            ? (string) $profile['program_start_date']
+            : null;
+
+        $dietPlan = Calculators::calculateDietPlan(
+            $currentWeight,
+            $targetWeight,
+            $durationDays,
+            $tdee,
+            $gender,
+            $goalType,
+            $programStartDate,
+            $date
+        );
+
+        $autoTarget = $dietPlan !== null ? (int) $dietPlan['suggested_food_calories'] : $recommended;
         $isManual = (int) ($profile['is_manual_target'] ?? 0) === 1;
         $manualTarget = isset($profile['daily_calorie_target']) ? (int) $profile['daily_calorie_target'] : null;
-        $activeTarget = ($isManual && $manualTarget !== null && $manualTarget > 0) ? $manualTarget : $recommended;
+        $activeTarget = ($isManual && $manualTarget !== null && $manualTarget > 0) ? $manualTarget : $autoTarget;
 
         return [
             'current_weight_kg' => round($currentWeight, 2),
@@ -50,9 +72,10 @@ final class AnalyticsService
             'bmi_category' => $bmiData['category'],
             'bmr' => round($bmr, 1),
             'tdee' => round($tdee, 1),
-            'recommended_calorie_target' => $recommended,
+            'recommended_calorie_target' => $autoTarget,
             'active_calorie_target' => $activeTarget,
             'is_manual_target' => $isManual,
+            'diet_plan' => $dietPlan,
         ];
     }
 
@@ -89,10 +112,32 @@ final class AnalyticsService
         $bmr = Calculators::calculateBmr($effectiveWeight, (float) $profile['height_cm'], (int) $profile['age'], (string) $profile['gender']);
         $baselineTdee = Calculators::calculateTdee($bmr, (string) $profile['activity_level']);
         $recommendedTarget = Calculators::calculateRecommendedCalories($baselineTdee, (string) $profile['goal_type'], (string) $profile['gender']);
+
+        $targetWeight = isset($profile['target_weight_kg']) && $profile['target_weight_kg'] !== null
+            ? (float) $profile['target_weight_kg']
+            : null;
+        $durationDays = isset($profile['program_duration_days']) && $profile['program_duration_days'] !== null
+            ? (int) $profile['program_duration_days']
+            : null;
+        $programStartDate = isset($profile['program_start_date']) && $profile['program_start_date'] !== ''
+            ? (string) $profile['program_start_date']
+            : null;
+        $dayPlan = Calculators::calculateDietPlan(
+            $effectiveWeight,
+            $targetWeight,
+            $durationDays,
+            $baselineTdee,
+            (string) $profile['gender'],
+            (string) $profile['goal_type'],
+            $programStartDate,
+            $date
+        );
+        $autoTarget = $dayPlan !== null ? (int) $dayPlan['suggested_food_calories'] : $recommendedTarget;
+
         $isManual = (int) ($profile['is_manual_target'] ?? 0) === 1;
         $dailyTarget = ($isManual && !empty($profile['daily_calorie_target']))
             ? (int) $profile['daily_calorie_target']
-            : $recommendedTarget;
+            : $autoTarget;
 
         $caloriesIn = (int) $food['calories'];
         $caloriesBurned = (int) $act['burned'];

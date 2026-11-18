@@ -91,6 +91,12 @@ final class Database
             );
             CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
             CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                setting_key TEXT PRIMARY KEY,
+                setting_value TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
         SQL);
 
         // Ensure default roles and admin user (id=1) exist before migrating legacy rows
@@ -99,6 +105,7 @@ final class Database
         // 2. Check whether legacy Phase-1 tables exist without user_id
         if (self::tableExists($pdo, 'user_profile') && !self::hasColumn($pdo, 'user_profile', 'user_id')) {
             self::upgradeLegacyTables($pdo);
+            self::ensureProfileDurationColumns($pdo);
             return;
         }
 
@@ -116,6 +123,8 @@ final class Database
                 goal_type TEXT NOT NULL CHECK (goal_type IN ('lose', 'maintain', 'gain')),
                 daily_calorie_target INTEGER NULL,
                 is_manual_target INTEGER NOT NULL DEFAULT 0,
+                program_duration_days INTEGER NULL,
+                program_start_date TEXT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
             );
@@ -196,6 +205,20 @@ final class Database
             );
             CREATE INDEX IF NOT EXISTS idx_weight_logs_user_date ON weight_logs(user_id, log_date);
         SQL);
+
+        self::ensureProfileDurationColumns($pdo);
+    }
+
+    private static function ensureProfileDurationColumns(PDO $pdo): void
+    {
+        if (self::tableExists($pdo, 'user_profile')) {
+            if (!self::hasColumn($pdo, 'user_profile', 'program_duration_days')) {
+                $pdo->exec('ALTER TABLE user_profile ADD COLUMN program_duration_days INTEGER NULL');
+            }
+            if (!self::hasColumn($pdo, 'user_profile', 'program_start_date')) {
+                $pdo->exec('ALTER TABLE user_profile ADD COLUMN program_start_date TEXT NULL');
+            }
+        }
     }
 
     private static function seedRolesAndAdmin(PDO $pdo): void
