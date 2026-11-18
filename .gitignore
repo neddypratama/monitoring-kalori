@@ -1,0 +1,17 @@
+# Dependencies
+frontend/node_modules/
+node_modules/
+
+# SQLite runtime databases
+storage/*.sqlite
+storage/*.sqlite-wal
+storage/*.sqlite-shm
+storage/*.sqlite-journal
+
+# SDD scratch workspace
+.superpowers/
+
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db
