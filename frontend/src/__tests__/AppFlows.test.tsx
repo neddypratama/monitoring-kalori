@@ -162,8 +162,17 @@ describe('KaloriKu UI flows', () => {
     expect(await screen.findByText(/Masuk Akun/i)).toBeInTheDocument();
     expect(screen.queryByText(/Admin default awal/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/admin123/i)).not.toBeInTheDocument();
+
+    // Verify show/hide password toggle works
+    const passInput = screen.getByLabelText(/^Password/i) as HTMLInputElement;
+    expect(passInput.type).toBe('password');
+    await user.click(screen.getByRole('button', { name: /Tampilkan password/i }));
+    expect(passInput.type).toBe('text');
+    await user.click(screen.getByRole('button', { name: /Sembunyikan password/i }));
+    expect(passInput.type).toBe('password');
+
     await user.type(screen.getByLabelText(/Username/i), 'admin');
-    await user.type(screen.getByLabelText(/^Password/i), 'admin123');
+    await user.type(passInput, 'admin123');
     await user.click(screen.getByRole('button', { name: /^Masuk$/i }));
 
     expect(await screen.findByText(/Selamat Datang di KaloriKu/i)).toBeInTheDocument();

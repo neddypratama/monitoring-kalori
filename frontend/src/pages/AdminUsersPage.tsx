@@ -18,6 +18,7 @@ import type {
   RoleItem,
 } from '../types';
 import { api } from '../api/client';
+import { PasswordInput } from '../components/PasswordInput';
 import { formatDateId, formatNum, getLocalDateIso } from '../utils/calculators';
 
 interface AdminUsersPageProps {
@@ -311,14 +312,13 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Password {editingUser && <span className="font-normal text-slate-400">(kosongkan jika tidak diubah)</span>}
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   required={!editingUser}
                   minLength={editingUser ? undefined : 6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Minimal 6 karakter"
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                  className="py-2"
                 />
               </div>
               <div>

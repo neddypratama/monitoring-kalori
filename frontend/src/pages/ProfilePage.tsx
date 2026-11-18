@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Download, KeyRound, Plus, Save, Scale, Trash2 } from 'lucide-react';
 import type { ActivityLevel, CurrentMetrics, Gender, GoalType, UserProfile, WeightLog } from '../types';
 import { api } from '../api/client';
+import { PasswordInput } from '../components/PasswordInput';
 import {
   ACTIVITY_LEVEL_LABELS,
   GOAL_LABELS,
@@ -383,23 +384,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Password Saat Ini</label>
-            <input
-              type="password"
+            <PasswordInput
               required
               value={curPass}
               onChange={(e) => setCurPass(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm"
+              className="py-2"
             />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">Password Baru (min. 6 karakter)</label>
-            <input
-              type="password"
+            <PasswordInput
               required
               minLength={6}
               value={newPass}
               onChange={(e) => setNewPass(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm"
+              className="py-2"
             />
           </div>
           <div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Flame, Lock, LogIn, UserPlus, User } from 'lucide-react';
 import type { AuthUser } from '../types';
 import { api } from '../api/client';
+import { PasswordInput } from './PasswordInput';
 
 interface AuthViewProps {
   onAuthenticated: (user: AuthUser) => void;
@@ -129,20 +130,16 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
             <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="auth-password">
               Password
             </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                id="auth-password"
-                type="password"
-                required
-                minLength={6}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimal 6 karakter"
-                className="w-full rounded-xl border border-slate-300 pl-10 pr-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+            <PasswordInput
+              id="auth-password"
+              required
+              minLength={6}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Minimal 6 karakter"
+              leftIcon={<Lock className="w-4 h-4" />}
+            />
           </div>
 
           {mode === 'register' && (
@@ -150,20 +147,16 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
               <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="auth-confirm">
                 Ulangi Password
               </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  id="auth-confirm"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Ketik ulang password"
-                  className="w-full rounded-xl border border-slate-300 pl-10 pr-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+              <PasswordInput
+                id="auth-confirm"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Ketik ulang password"
+                leftIcon={<Lock className="w-4 h-4" />}
+              />
             </div>
           )}
 
