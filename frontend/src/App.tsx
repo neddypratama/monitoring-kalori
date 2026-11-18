@@ -27,6 +27,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AdminRolesPage } from './pages/AdminRolesPage';
 import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
 
 export const App: React.FC = () => {
   const [bootLoading, setBootLoading] = useState(true);
@@ -325,6 +326,8 @@ export const App: React.FC = () => {
       {activeTab === 'admin-roles' && <AdminRolesPage onNotify={(t, msg) => notify(t, msg)} />}
 
       {activeTab === 'admin-logs' && <AdminAuditLogsPage onNotify={(t, msg) => notify(t, msg)} />}
+
+      {activeTab === 'admin-settings' && <AdminSettingsPage onNotify={(t, msg) => notify(t, msg)} />}
 
       <FoodLogModal
         isOpen={foodModalOpen}

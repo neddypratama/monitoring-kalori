@@ -34,6 +34,8 @@ const ACTION_LABELS: Record<string, string> = {
   create_role: 'Admin Tambah Role',
   update_role: 'Admin Edit Role',
   delete_role: 'Admin Hapus Role',
+  update_settings: 'Ubah Pengaturan AI',
+  analyze_food_photo: 'Analisis Foto AI',
   export_data: 'Ekspor JSON',
 };
 
@@ -134,35 +136,57 @@ export const AdminAuditLogsPage: React.FC<AdminAuditLogsPageProps> = ({ onNotify
         ) : logs.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-400">Belum ada log aktivitas yang cocok dengan filter.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="py-3 px-4">Waktu</th>
-                  <th className="py-3 px-4">User (Actor)</th>
-                  <th className="py-3 px-4">Aksi</th>
-                  <th className="py-3 px-4">Detail</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/70">
-                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap tabular-nums">{log.created_at}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="font-bold text-slate-800">@{log.username_snapshot}</span>
-                      {log.user_id && <span className="text-slate-400 ml-1">(#{log.user_id})</span>}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold">
-                        {ACTION_LABELS[log.action] ?? log.action}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-700">{log.details || '-'}</td>
+          <>
+            {/* Mobile Stacked Log Cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {logs.map((log) => (
+                <div key={`m-${log.id}`} className="p-4 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-bold">
+                      {ACTION_LABELS[log.action] ?? log.action}
+                    </span>
+                    <span className="text-[11px] text-slate-400 tabular-nums">{log.created_at}</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-800">
+                    @{log.username_snapshot}
+                    {log.user_id && <span className="text-slate-400 font-normal ml-1">(#{log.user_id})</span>}
+                  </p>
+                  <p className="text-xs text-slate-600 leading-relaxed">{log.details || '-'}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Tablet & Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <th className="py-3 px-4">Waktu</th>
+                    <th className="py-3 px-4">User (Actor)</th>
+                    <th className="py-3 px-4">Aksi</th>
+                    <th className="py-3 px-4">Detail</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50/70">
+                      <td className="py-3 px-4 text-slate-500 whitespace-nowrap tabular-nums">{log.created_at}</td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="font-bold text-slate-800">@{log.username_snapshot}</span>
+                        {log.user_id && <span className="text-slate-400 ml-1">(#{log.user_id})</span>}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold">
+                          {ACTION_LABELS[log.action] ?? log.action}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-700">{log.details || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

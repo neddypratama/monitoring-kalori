@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, Edit3, Globe, Loader2, Plus, Search, Star, Trash2, Utensils, X } from 'lucide-react';
-import type { ActivityItem, FoodItem, OpenFoodFactsProduct } from '../types';
+import { Activity, Edit3, Plus, Search, Star, Trash2, Utensils, X } from 'lucide-react';
+import type { ActivityItem, FoodItem } from '../types';
 import { api } from '../api/client';
 import { formatNum, parseDecimalInput } from '../utils/calculators';
 
@@ -47,54 +47,6 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [aSpeed, setASpeed] = useState('5');
 
   const [saving, setSaving] = useState(false);
-
-  // Open Food Facts import modal
-  const [showOffModal, setShowOffModal] = useState(false);
-  const [offQuery, setOffQuery] = useState('');
-  const [offLoading, setOffLoading] = useState(false);
-  const [offSearched, setOffSearched] = useState(false);
-  const [offResults, setOffResults] = useState<OpenFoodFactsProduct[]>([]);
-  const [importingCode, setImportingCode] = useState<string | null>(null);
-
-  const handleSearchOff = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (offQuery.trim().length < 2) {
-      onNotify('error', 'Masukkan minimal 2 huruf nama produk.');
-      return;
-    }
-    setOffLoading(true);
-    setOffSearched(true);
-    try {
-      setOffResults(await api.searchOpenFoodFacts(offQuery.trim()));
-    } catch (err) {
-      setOffResults([]);
-      onNotify('error', err instanceof Error ? err.message : 'Gagal mencari di Open Food Facts.');
-    } finally {
-      setOffLoading(false);
-    }
-  };
-
-  const handleImportOff = async (item: OpenFoodFactsProduct) => {
-    setImportingCode(item.code || item.name);
-    try {
-      await api.createFood({
-        name: item.name,
-        category: 'Camilan',
-        default_unit: item.default_unit,
-        serving_grams: item.serving_grams,
-        calories_per_100g: item.calories_per_100g,
-        protein_per_100g: item.protein_per_100g,
-        carbs_per_100g: item.carbs_per_100g,
-        fat_per_100g: item.fat_per_100g,
-      });
-      onNotify('success', `${item.name} berhasil disimpan ke katalog pribadi.`);
-      await onRefreshCatalog();
-    } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menyimpan produk.');
-    } finally {
-      setImportingCode(null);
-    }
-  };
 
   const filteredFoods = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -269,20 +221,6 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
           </p>
         </div>
         <div className="flex flex-wrap gap-2 self-start">
-          {subTab === 'foods' && (
-            <button
-              type="button"
-              onClick={() => {
-                setOffQuery('');
-                setOffResults([]);
-                setOffSearched(false);
-                setShowOffModal(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold shadow-xs cursor-pointer"
-            >
-              <Globe className="w-4 h-4" /> Cari Open Food Facts
-            </button>
-          )}
           <button
             type="button"
             onClick={subTab === 'foods' ? openNewFood : openNewAct}
@@ -510,15 +448,15 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
       {/* Custom Food Modal */}
       {showFoodForm && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="text-base font-bold">{editingFood ? 'Edit Makanan Kustom' : 'Tambah Makanan Kustom'}</h3>
-              <button type="button" onClick={() => setShowFoodForm(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+              <button type="button" onClick={() => setShowFoodForm(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSaveFood} className="p-6 space-y-3.5">
+            <form onSubmit={handleSaveFood} className="p-5 sm:p-6 space-y-3.5 overflow-y-auto pb-safe">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Makanan</label>
                 <input
@@ -632,15 +570,15 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
       {/* Custom Activity Modal */}
       {showActForm && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[92dvh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="text-base font-bold">{editingAct ? 'Edit Aktivitas Kustom' : 'Tambah Aktivitas Kustom'}</h3>
-              <button type="button" onClick={() => setShowActForm(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+              <button type="button" onClick={() => setShowActForm(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSaveActivity} className="p-6 space-y-3.5">
+            <form onSubmit={handleSaveActivity} className="p-5 sm:p-6 space-y-3.5 overflow-y-auto pb-safe">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Aktivitas</label>
                 <input
@@ -714,97 +652,6 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Open Food Facts Import Modal */}
-      {showOffModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-sky-50/60">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center">
-                  <Globe className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Cari Produk di Open Food Facts</h3>
-                  <p className="text-xs text-slate-500">Impor detail kalori &amp; makro produk kemasan ke katalog pribadi Anda</p>
-                </div>
-              </div>
-              <button type="button" onClick={() => setShowOffModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <form onSubmit={handleSearchOff} className="flex gap-2">
-                <input
-                  type="text"
-                  value={offQuery}
-                  onChange={(e) => setOffQuery(e.target.value)}
-                  placeholder="Nama produk... (misal: Indomie, Ultra Milk, Fitbar, Milo)"
-                  className="flex-1 rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
-                />
-                <button
-                  type="submit"
-                  disabled={offLoading}
-                  className="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
-                >
-                  {offLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cari'}
-                </button>
-              </form>
-
-              <div className="max-h-80 overflow-y-auto rounded-2xl border border-slate-200 divide-y divide-slate-100">
-                {offLoading ? (
-                  <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-sky-600" /> Mengambil data dari Open Food Facts...
-                  </div>
-                ) : !offSearched ? (
-                  <div className="p-6 text-center text-xs text-slate-400">
-                    Ketik nama produk kemasan untuk mencari nilai kalori &amp; makronya.
-                  </div>
-                ) : offResults.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-slate-500">
-                    Tidak ada produk dengan data kalori untuk kata kunci tersebut.
-                  </div>
-                ) : (
-                  offResults.map((item, idx) => {
-                    const key = item.code || item.name;
-                    return (
-                      <div key={`${key}-${idx}`} className="p-3.5 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {item.image_url ? (
-                            <img src={item.image_url} alt="" className="w-10 h-10 rounded-xl object-cover bg-slate-100 shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">
-                              <Globe className="w-4 h-4" />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-800 truncate">{item.name}</p>
-                            <p className="text-xs text-slate-500 tabular-nums">
-                              <strong className="text-sky-700">{item.calories_per_100g} kkal/100g</strong> • 1 {item.default_unit} ({item.serving_grams}g) = {item.calories_per_serving} kkal
-                            </p>
-                            <p className="text-[11px] text-slate-400 tabular-nums">
-                              P {item.protein_per_100g}g • K {item.carbs_per_100g}g • L {item.fat_per_100g}g
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={importingCode === key}
-                          onClick={() => handleImportOff(item)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold shrink-0 cursor-pointer"
-                        >
-                          {importingCode === key ? 'Menyimpan...' : 'Simpan'}
-                        </button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
           </div>
         </div>
       )}

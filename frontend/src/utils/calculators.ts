@@ -1,4 +1,4 @@
-import type { ActivityItem, ActivityLevel, ActivityUnit, FoodItem, Gender, GoalType } from '../types';
+import type { ActivityItem, ActivityLevel, ActivityUnit, DietPlan, FoodItem, Gender, GoalType } from '../types';
 
 export const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
   sedentary: 1.2,
@@ -84,6 +84,94 @@ export function previewProfileMetrics(input: {
   else if (goalType === 'gain') recommendedCalories = Math.round(tdee + 300);
 
   return { bmi, bmiCategory, bmr, tdee, recommendedCalories };
+}
+
+export function previewDietPlan(input: {
+  currentWeightKg: number;
+  targetWeightKg: number | null;
+  durationDays: number | null;
+  tdee: number;
+  gender: Gender;
+  goalType: GoalType;
+  startDate?: string;
+}): DietPlan | null {
+  const { currentWeightKg, targetWeightKg, durationDays, tdee, gender, goalType } = input;
+  if (!targetWeightKg || !durationDays || durationDays <= 0 || currentWeightKg <= 0) return null;
+
+  const safeFloor = gender === 'female' ? 1200 : 1500;
+  const startStr = input.startDate || getLocalDateIso();
+  const targetEndDate = shiftDateIso(startStr, Math.max(0, durationDays - 1));
+
+  const weightDiffKg = Math.round((targetWeightKg - currentWeightKg) * 100) / 100;
+  const absDiff = Math.abs(weightDiffKg);
+  const totalCaloriesNeeded = Math.round(absDiff * 7700);
+  const dailyGap = Math.round(totalCaloriesNeeded / durationDays);
+  const weeklyRateKg = Math.round(((absDiff / durationDays) * 7) * 100) / 100;
+
+  let direction: 'lose' | 'maintain' | 'gain' = 'maintain';
+  let suggestedFood = Math.round(tdee);
+  let suggestedExercise = 200;
+  let isAggressive = false;
+  let recommendedMinDays = durationDays;
+  let advice = 'Target berat badan sudah tercapai! Jaga asupan sesuai TDEE dan olahraga ringan rutin.';
+
+  if (weightDiffKg < -0.05) {
+    direction = 'lose';
+    const foodCut = Math.round(dailyGap * 0.65);
+    const rawFood = Math.round(tdee - foodCut);
+    if (rawFood < safeFloor) {
+      suggestedFood = safeFloor;
+      const actualFoodCut = Math.max(0, Math.round(tdee - safeFloor));
+      suggestedExercise = Math.max(0, dailyGap - actualFoodCut);
+    } else {
+      suggestedFood = rawFood;
+      suggestedExercise = Math.max(0, dailyGap - foodCut);
+    }
+    isAggressive = weeklyRateKg > 1.0 || dailyGap > 1000 || suggestedExercise > 600;
+    recommendedMinDays = Math.max(7, Math.ceil((absDiff * 7) / 0.75));
+    advice = isAggressive
+      ? `Target turun ${absDiff} kg dalam ${durationDays} hari cukup ketat (${weeklyRateKg} kg/minggu). Pertimbangkan durasi minimal sekitar ${recommendedMinDays} hari agar lebih sehat.`
+      : `Untuk turun ${absDiff} kg tepat waktu, kombinasikan makan sekitar ${suggestedFood} kkal/hari dan bakar sekitar ${suggestedExercise} kkal/hari lewat olahraga.`;
+  } else if (weightDiffKg > 0.05) {
+    direction = 'gain';
+    suggestedExercise = 150;
+    suggestedFood = Math.round(tdee + dailyGap + suggestedExercise);
+    isAggressive = weeklyRateKg > 0.5;
+    recommendedMinDays = Math.max(14, Math.ceil((absDiff * 7) / 0.4));
+    advice = isAggressive
+      ? `Target naik ${absDiff} kg dalam ${durationDays} hari cukup cepat (${weeklyRateKg} kg/minggu). Disarankan durasi minimal ${recommendedMinDays} hari.`
+      : `Untuk naik ${absDiff} kg secara sehat, konsumsi sekitar ${suggestedFood} kkal/hari diimbangi latihan kekuatan (~${suggestedExercise} kkal/hari).`;
+  } else if (goalType === 'lose') {
+    direction = 'maintain';
+  }
+
+  const walkKcalPerMin = (4.3 * 3.5 * currentWeightKg) / 200;
+  const jogKcalPerMin = (8.3 * 3.5 * currentWeightKg) / 200;
+  const walkMinEquiv = suggestedExercise > 0 && walkKcalPerMin > 0 ? Math.round(suggestedExercise / walkKcalPerMin) : 0;
+  const walkKmEquiv = walkMinEquiv > 0 ? Math.round(((walkMinEquiv / 60) * 6.0) * 10) / 10 : 0;
+  const jogMinEquiv = suggestedExercise > 0 && jogKcalPerMin > 0 ? Math.round(suggestedExercise / jogKcalPerMin) : 0;
+
+  return {
+    direction,
+    duration_days: durationDays,
+    start_date: startStr,
+    target_end_date: targetEndDate,
+    days_elapsed: 1,
+    days_remaining: Math.max(0, durationDays - 1),
+    effective_days: durationDays,
+    weight_diff_kg: weightDiffKg,
+    total_calories_needed: totalCaloriesNeeded,
+    daily_gap_kcal: dailyGap,
+    weekly_rate_kg: weeklyRateKg,
+    suggested_food_calories: suggestedFood,
+    suggested_exercise_burn: suggestedExercise,
+    is_aggressive: isAggressive,
+    recommended_min_days: recommendedMinDays,
+    walk_min_equiv: walkMinEquiv,
+    walk_km_equiv: walkKmEquiv,
+    jog_min_equiv: jogMinEquiv,
+    advice,
+  };
 }
 
 export function previewFoodNutrition(

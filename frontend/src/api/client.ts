@@ -1,6 +1,7 @@
 import type {
   ActivityItem,
   ActivityLog,
+  AdminAiSettings,
   AdminUserOverview,
   AdminUserSummary,
   AuditLogItem,
@@ -12,6 +13,7 @@ import type {
   FoodItem,
   FoodLog,
   OpenFoodFactsProduct,
+  PhotoAnalysisResult,
   ProfileResponse,
   RoleItem,
   WeightLog,
@@ -79,6 +81,8 @@ export const api = {
   toggleFoodFavorite: (id: number) => request<FoodItem>('POST', 'foods/favorite', { params: { id } }),
   searchOpenFoodFacts: (q: string) =>
     request<OpenFoodFactsProduct[]>('GET', 'foods/openfoodfacts', { params: { q } }),
+  analyzeFoodPhoto: (body: { image_base64: string; mime_type: string; hint?: string }) =>
+    request<PhotoAnalysisResult>('POST', 'foods/analyze-photo', { body }),
 
   getActivities: (params?: { q?: string; category?: string; favorites?: string }) =>
     request<ActivityItem[]>('GET', 'activities', { params }),
@@ -131,4 +135,8 @@ export const api = {
 
   getAdminAuditLogs: (params?: { user_id?: number; action?: string; q?: string; limit?: number }) =>
     request<AuditLogItem[]>('GET', 'admin/audit-logs', { params }),
+
+  getAdminSettings: () => request<AdminAiSettings>('GET', 'admin/settings'),
+  saveAdminSettings: (body: { gemini_api_key?: string; clear_gemini_key?: boolean; gemini_model?: string }) =>
+    request<AdminAiSettings>('POST', 'admin/settings', { body }),
 };

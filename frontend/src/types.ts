@@ -11,7 +11,59 @@ export type AppTab =
   | 'profile'
   | 'admin-users'
   | 'admin-roles'
-  | 'admin-logs';
+  | 'admin-logs'
+  | 'admin-settings';
+
+export interface DietPlan {
+  direction: 'lose' | 'maintain' | 'gain';
+  duration_days: number;
+  start_date: string;
+  target_end_date: string;
+  days_elapsed: number;
+  days_remaining: number;
+  effective_days: number;
+  weight_diff_kg: number;
+  total_calories_needed: number;
+  daily_gap_kcal: number;
+  weekly_rate_kg: number;
+  suggested_food_calories: number;
+  suggested_exercise_burn: number;
+  is_aggressive: boolean;
+  recommended_min_days: number;
+  walk_min_equiv: number;
+  walk_km_equiv: number;
+  jog_min_equiv: number;
+  advice: string;
+}
+
+export interface PhotoAnalysisItem {
+  name: string;
+  unit: string;
+  quantity: number;
+  estimated_grams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface PhotoAnalysisResult {
+  meal_summary: string;
+  confidence: 'tinggi' | 'sedang' | 'rendah';
+  notes: string;
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fat: number;
+  items: PhotoAnalysisItem[];
+}
+
+export interface AdminAiSettings {
+  has_gemini_key: boolean;
+  gemini_key_masked: string;
+  gemini_model: string;
+  allowed_models: string[];
+}
 
 export interface RolePermissions {
   can_manage_users: boolean;
@@ -105,6 +157,8 @@ export interface UserProfile {
   goal_type: GoalType;
   daily_calorie_target: number | null;
   is_manual_target: boolean;
+  program_duration_days?: number | null;
+  program_start_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +174,7 @@ export interface CurrentMetrics {
   recommended_calorie_target: number;
   active_calorie_target: number;
   is_manual_target: boolean;
+  diet_plan?: DietPlan | null;
 }
 
 export interface ProfileResponse {

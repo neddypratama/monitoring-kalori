@@ -57,7 +57,7 @@ if [ -n "$TARGET_DIR" ]; then
     echo ""
     echo "🌐 [4/4] Menyinkronkan aplikasi ke web root: $TARGET_DIR ..."
     mkdir -p "$TARGET_DIR" "$TARGET_DIR/storage"
-    cp -f index.php api.php .htaccess "$TARGET_DIR"/
+    cp -f index.php api.php .htaccess sw.js "$TARGET_DIR"/
     rm -rf "$TARGET_DIR/backend" "$TARGET_DIR/dist"
     cp -r backend dist "$TARGET_DIR"/
     chmod 775 "$TARGET_DIR/storage" 2>/dev/null || chmod 755 "$TARGET_DIR/storage" 2>/dev/null || true

@@ -18,6 +18,7 @@ vi.mock('../api/client', () => ({
     saveProfile: vi.fn(),
     getFoods: vi.fn(),
     searchOpenFoodFacts: vi.fn(),
+    analyzeFoodPhoto: vi.fn(),
     getActivities: vi.fn(),
     getDashboard: vi.fn(),
     getDayLogs: vi.fn(),
@@ -273,51 +274,116 @@ describe('KaloriKu UI flows', () => {
     expect(screen.getByText('293')).toBeInTheDocument();
   });
 
-  it('searches Open Food Facts in FoodLogModal Cari Online tab and previews live calories', async () => {
+  it('analyzes a food photo in FoodLogModal Foto AI tab and batch-saves checked items', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.searchOpenFoodFacts).mockResolvedValueOnce([
-      {
-        code: '089686010343',
-        name: 'Indomie Goreng',
-        brand: 'Indomie',
-        image_url: null,
-        serving_size: '85 g',
-        default_unit: 'bungkus',
-        serving_grams: 85,
-        calories_per_100g: 464,
-        protein_per_100g: 10.8,
-        carbs_per_100g: 62.2,
-        fat_per_100g: 18.3,
-        calories_per_serving: 394,
-      },
-    ]);
+    vi.mocked(api.analyzeFoodPhoto).mockResolvedValueOnce({
+      meal_summary: 'Nasi Putih dengan Ayam Goreng',
+      confidence: 'tinggi',
+      notes: 'Estimasi porsi standar warteg.',
+      total_calories: 520,
+      total_protein: 32.5,
+      total_carbs: 55.0,
+      total_fat: 18.0,
+      items: [
+        {
+          name: 'Nasi Putih',
+          unit: 'piring',
+          quantity: 1,
+          estimated_grams: 150,
+          calories: 200,
+          protein: 4.0,
+          carbs: 44.0,
+          fat: 0.5,
+        },
+        {
+          name: 'Ayam Goreng Paha',
+          unit: 'potong',
+          quantity: 1,
+          estimated_grams: 120,
+          calories: 320,
+          protein: 28.5,
+          carbs: 11.0,
+          fat: 17.5,
+        },
+      ],
+    });
+    vi.mocked(api.createFoodLog).mockResolvedValue({
+      id: 99,
+      log_date: '2026-11-18',
+      meal_type: 'siang',
+      food_id: null,
+      food_name: 'Nasi Putih',
+      quantity: 1,
+      unit: 'piring',
+      calories: 200,
+      protein: 4,
+      carbs: 44,
+      fat: 0.5,
+      notes: '',
+      created_at: '2026-11-18',
+    });
 
+    const onSaved = vi.fn();
     render(
       <FoodLogModal
         isOpen={true}
         date="2026-11-18"
         foods={SAMPLE_FOODS}
         onClose={() => {}}
-        onSaved={() => {}}
+        onSaved={onSaved}
         onFoodCreated={() => {}}
       />
     );
 
-    await user.click(screen.getByRole('button', { name: /Cari Online/i }));
-    await user.type(screen.getByPlaceholderText(/Cari produk kemasan/i), 'indomie');
-    await user.click(screen.getByRole('button', { name: /^Cari$/i }));
+    await user.click(screen.getByRole('button', { name: /Foto AI/i }));
+    const fileInput = screen.getByLabelText(/Upload Foto Makanan/i);
+    const fakeFile = new File(['fake-jpeg-bytes'], 'makan-siang.jpg', { type: 'image/jpeg' });
+    await user.upload(fileInput, fakeFile);
 
-    expect(await screen.findByText('Indomie Goreng')).toBeInTheDocument();
-    await user.click(screen.getByText('Indomie Goreng'));
+    await user.click(await screen.findByRole('button', { name: /Analisis Foto AI/i }));
 
-    // 1 bungkus (85g) * 464 kcal/100g = 394 kcal
-    expect(screen.getByText('394')).toBeInTheDocument();
+    expect(await screen.findByText('Nasi Putih dengan Ayam Goreng')).toBeInTheDocument();
+    expect(screen.getByText('520')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Simpan \(2\) dari Foto/i }));
+
+    await waitFor(() => {
+      expect(api.createFoodLog).toHaveBeenCalledTimes(2);
+      expect(onSaved).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('renders DashboardPage buttons without "+" prefix and shows Sesuai Jalur verdict', () => {
+  it('renders DashboardPage buttons without "+" prefix, Diet Duration Balance Card, and Sesuai Jalur verdict', () => {
+    const dashWithPlan: DashboardData = {
+      ...SAMPLE_DASHBOARD,
+      metrics: {
+        ...SAMPLE_DASHBOARD.metrics,
+        diet_plan: {
+          direction: 'lose',
+          duration_days: 90,
+          start_date: '2026-11-09',
+          target_end_date: '2027-02-06',
+          days_elapsed: 10,
+          days_remaining: 80,
+          effective_days: 80,
+          weight_diff_kg: -4.5,
+          total_calories_needed: 34650,
+          daily_gap_kcal: 433,
+          weekly_rate_kg: 0.39,
+          suggested_food_calories: 1684,
+          suggested_exercise_burn: 152,
+          is_aggressive: false,
+          recommended_min_days: 42,
+          walk_min_equiv: 29,
+          walk_km_equiv: 2.9,
+          jog_min_equiv: 15,
+          advice: 'Kombinasikan makan sekitar 1.684 kkal/hari dan bakar sekitar 152 kkal/hari lewat olahraga.',
+        },
+      },
+    };
     render(
       <DashboardPage
-        dashboard={SAMPLE_DASHBOARD}
+        dashboard={dashWithPlan}
         userName="Budi"
         range="7d"
         onRangeChange={() => {}}
@@ -333,9 +399,11 @@ describe('KaloriKu UI flows', () => {
     expect(screen.getByRole('button', { name: 'Catat Berat Badan' })).toBeInTheDocument();
     expect(screen.queryByText(/\+ Catat/)).not.toBeInTheDocument();
     expect(screen.getByText('Sesuai Jalur')).toBeInTheDocument();
+    expect(screen.getByText(/Hari ke-10 dari 90 • Sisa 80 hari/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saran Bakar Olahraga/i)).toBeInTheDocument();
   });
 
-  it('shows Admin navigation for admin role, hides it for regular user, and omits "+" on sidebar buttons', () => {
+  it('shows Admin navigation (including Pengaturan AI) for admin role, hides it for regular user, and omits "+" on sidebar buttons', () => {
     const { rerender } = render(
       <Layout
         activeTab="dashboard"
@@ -355,6 +423,7 @@ describe('KaloriKu UI flows', () => {
     expect(screen.getAllByText('Kelola User').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Kelola Role').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Log Sistem').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Pengaturan AI').length).toBeGreaterThan(0);
     expect(screen.queryByText(/\+ Catat/)).not.toBeInTheDocument();
 
     rerender(
@@ -376,5 +445,6 @@ describe('KaloriKu UI flows', () => {
     expect(screen.queryByText('Kelola User')).not.toBeInTheDocument();
     expect(screen.queryByText('Kelola Role')).not.toBeInTheDocument();
     expect(screen.queryByText('Log Sistem')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pengaturan AI')).not.toBeInTheDocument();
   });
 });

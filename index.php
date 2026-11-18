@@ -6,8 +6,24 @@ $distHtml = __DIR__ . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'inde
 if (is_file($distHtml)) {
     header('Content-Type: text/html; charset=utf-8');
     $html = file_get_contents($distHtml);
-    // Rewrite relative ./assets/ to ./dist/assets/ so root vhost, subdirectory, and php -S all resolve identically
-    $html = str_replace(['src="./assets/', 'href="./assets/'], ['src="./dist/assets/', 'href="./dist/assets/'], (string) $html);
+    // Rewrite relative ./assets/ and PWA icon/manifest links into ./dist/ so root vhost, subdirectory, and php -S all resolve identically
+    $html = str_replace(
+        [
+            'src="./assets/',
+            'href="./assets/',
+            'href="./manifest.webmanifest"',
+            'href="./icon.svg"',
+            'href="./apple-touch-icon.png"',
+        ],
+        [
+            'src="./dist/assets/',
+            'href="./dist/assets/',
+            'href="./dist/manifest.webmanifest"',
+            'href="./dist/icon.svg"',
+            'href="./dist/apple-touch-icon.png"',
+        ],
+        (string) $html
+    );
     echo $html;
     exit;
 }

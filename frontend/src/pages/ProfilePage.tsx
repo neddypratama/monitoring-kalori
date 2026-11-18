@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Download, KeyRound, Plus, Save, Scale, Trash2 } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarClock, Download, KeyRound, Plus, Save, Scale, Trash2 } from 'lucide-react';
 import type { ActivityLevel, CurrentMetrics, Gender, GoalType, UserProfile, WeightLog } from '../types';
 import { api } from '../api/client';
 import { PasswordInput } from '../components/PasswordInput';
@@ -10,8 +10,17 @@ import {
   formatNum,
   getLocalDateIso,
   parseDecimalInput,
+  previewDietPlan,
   previewProfileMetrics,
 } from '../utils/calculators';
+
+const DURATION_PRESETS = [
+  { label: '1 Bln (30 hr)', days: '30' },
+  { label: '2 Bln (60 hr)', days: '60' },
+  { label: '3 Bln (90 hr)', days: '90' },
+  { label: '6 Bln (180 hr)', days: '180' },
+  { label: 'Fleksibel', days: '' },
+];
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -36,6 +45,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [heightCm, setHeightCm] = useState(String(profile.height_cm));
   const [initialWeight, setInitialWeight] = useState(String(profile.initial_weight_kg));
   const [targetWeight, setTargetWeight] = useState(profile.target_weight_kg ? String(profile.target_weight_kg) : '');
+  const [durationDays, setDurationDays] = useState(
+    profile.program_duration_days ? String(profile.program_duration_days) : ''
+  );
+  const [programStartDate, setProgramStartDate] = useState(profile.program_start_date || getLocalDateIso());
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>(profile.activity_level);
   const [goalType, setGoalType] = useState<GoalType>(profile.goal_type);
   const [isManualTarget, setIsManualTarget] = useState(profile.is_manual_target);
@@ -73,6 +86,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setHeightCm(String(profile.height_cm));
     setInitialWeight(String(profile.initial_weight_kg));
     setTargetWeight(profile.target_weight_kg ? String(profile.target_weight_kg) : '');
+    setDurationDays(profile.program_duration_days ? String(profile.program_duration_days) : '');
+    setProgramStartDate(profile.program_start_date || getLocalDateIso());
     setActivityLevel(profile.activity_level);
     setGoalType(profile.goal_type);
     setIsManualTarget(profile.is_manual_target);
@@ -93,6 +108,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     });
   }, [metrics.current_weight_kg, heightCm, age, gender, activityLevel, goalType]);
 
+  const dietPlanPreview = useMemo(() => {
+    if (!preview) return null;
+    const tw = targetWeight.trim() ? parseDecimalInput(targetWeight) : null;
+    const dur = durationDays.trim() ? Math.round(parseDecimalInput(durationDays) ?? 0) : null;
+    if (!tw || !dur || dur < 7) return null;
+    return previewDietPlan({
+      currentWeightKg: metrics.current_weight_kg,
+      targetWeightKg: tw,
+      durationDays: dur,
+      tdee: preview.tdee,
+      gender,
+      goalType,
+      startDate: programStartDate || getLocalDateIso(),
+    });
+  }, [preview, metrics.current_weight_kg, targetWeight, durationDays, gender, goalType, programStartDate]);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const h = parseDecimalInput(heightCm);
@@ -100,9 +131,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const iw = parseDecimalInput(initialWeight);
     const tw = targetWeight.trim() ? parseDecimalInput(targetWeight) : null;
     const mt = isManualTarget ? parseDecimalInput(manualTarget) : null;
+    const durRaw = durationDays.trim() ? parseDecimalInput(durationDays) : null;
+    const dur = durRaw && durRaw > 0 ? Math.round(durRaw) : null;
 
     if (!h || !a || !iw) {
       onNotify('error', 'Pastikan tinggi badan, usia, dan berat badan awal valid.');
+      return;
+    }
+    if (dur !== null && (dur < 7 || dur > 730)) {
+      onNotify('error', 'Durasi program harus antara 7 sampai 730 hari (atau kosongkan untuk fleksibel).');
       return;
     }
 
@@ -119,6 +156,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         goal_type: goalType,
         is_manual_target: isManualTarget,
         daily_calorie_target: mt ? Math.round(mt) : null,
+        program_duration_days: tw ? dur : null,
+        program_start_date: tw && dur ? programStartDate || getLocalDateIso() : null,
       });
       await onProfileUpdated();
       onNotify('success', 'Profil & target program diet diperbarui.');
@@ -283,6 +322,98 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </div>
 
+          {/* Program Duration Planner */}
+          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <CalendarClock className="w-4 h-4 text-emerald-600" /> Durasi Target Program Diet
+              </p>
+              <span className="text-[11px] text-slate-500">Hitung keseimbangan makan &amp; olahraga tepat waktu</span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {DURATION_PRESETS.map((preset) => {
+                const active = durationDays === preset.days;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setDurationDays(preset.days)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                      active
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="prof-duration">
+                  Durasi Program (hari)
+                </label>
+                <input
+                  id="prof-duration"
+                  type="number"
+                  min={7}
+                  max={730}
+                  value={durationDays}
+                  onChange={(e) => setDurationDays(e.target.value)}
+                  placeholder="Kosong = fleksibel"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="prof-start-date">
+                  Tanggal Mulai Program
+                </label>
+                <input
+                  id="prof-start-date"
+                  type="date"
+                  value={programStartDate}
+                  onChange={(e) => setProgramStartDate(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+
+            {dietPlanPreview && (
+              <div className="pt-2 border-t border-emerald-200/70 space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="p-3 rounded-xl bg-white border border-emerald-200/80">
+                    <p className="text-[11px] font-semibold text-slate-500">Saran Kalori Makan Harian</p>
+                    <p className="text-lg font-extrabold text-emerald-700 tabular-nums">
+                      {formatNum(dietPlanPreview.suggested_food_calories)} <span className="text-xs font-semibold">kkal/hari</span>
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-amber-200/80">
+                    <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                      <Activity className="w-3.5 h-3.5 text-amber-500" /> Saran Bakar Olahraga Harian
+                    </p>
+                    <p className="text-lg font-extrabold text-amber-600 tabular-nums">
+                      {formatNum(dietPlanPreview.suggested_exercise_burn)} <span className="text-xs font-semibold">kkal/hari</span>
+                    </p>
+                    {dietPlanPreview.suggested_exercise_burn > 0 && (
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        ≈ jalan cepat {formatNum(dietPlanPreview.walk_km_equiv, 1)} km ({dietPlanPreview.walk_min_equiv} mnt) / jog {dietPlanPreview.jog_min_equiv} mnt
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {dietPlanPreview.is_aggressive && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>{dietPlanPreview.advice}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Auto vs Manual Calorie Target */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -291,7 +422,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <p className="text-[11px] text-slate-500">
                   Rekomendasi otomatis berdasarkan BB terkini ({formatNum(metrics.current_weight_kg, 1)} kg):{' '}
                   <strong className="text-emerald-700">
-                    {formatNum(preview?.recommendedCalories ?? metrics.recommended_calorie_target)} kkal/hari
+                    {formatNum(
+                      dietPlanPreview?.suggested_food_calories ??
+                        preview?.recommendedCalories ??
+                        metrics.recommended_calorie_target
+                    )}{' '}
+                    kkal/hari
                   </strong>
                 </p>
               </div>

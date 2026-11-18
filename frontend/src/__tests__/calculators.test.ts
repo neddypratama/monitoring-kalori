@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseDecimalInput,
   previewProfileMetrics,
+  previewDietPlan,
   previewFoodNutrition,
   previewActivityCalories,
   formatWeightTooltipValue,
@@ -117,5 +118,40 @@ describe('calculators preview & decimal parsing', () => {
     expect(formatWeightTooltipValue(undefined)).toBe('Belum timbang');
     expect(formatWeightTooltipValue('')).toBe('Belum timbang');
     expect(formatWeightTooltipValue(69.5)).toBe('69,50 kg');
+  });
+
+  it('computes 3-month balanced diet plan (food + exercise), enforces safe floor, and flags aggressive pace', () => {
+    // 78 kg -> 70 kg in 90 days (8 kg * 7700 / 90 = 684 kcal/day gap), TDEE 2200, male
+    const balanced = previewDietPlan({
+      currentWeightKg: 78,
+      targetWeightKg: 70,
+      durationDays: 90,
+      tdee: 2200,
+      gender: 'male',
+      goalType: 'lose',
+      startDate: '2026-11-18',
+    });
+    expect(balanced).not.toBeNull();
+    expect(balanced!.direction).toBe('lose');
+    expect(balanced!.daily_gap_kcal).toBe(684);
+    expect(balanced!.suggested_food_calories).toBe(1755); // 2200 - round(684 * 0.65 = 445)
+    expect(balanced!.suggested_exercise_burn).toBe(239); // 684 - 445
+    expect(balanced!.is_aggressive).toBe(false);
+    expect(balanced!.walk_min_equiv).toBeGreaterThan(0);
+
+    // Aggressive target: 75 kg -> 60 kg in 30 days (female, floor 1200)
+    const aggressive = previewDietPlan({
+      currentWeightKg: 75,
+      targetWeightKg: 60,
+      durationDays: 30,
+      tdee: 1700,
+      gender: 'female',
+      goalType: 'lose',
+      startDate: '2026-11-18',
+    });
+    expect(aggressive).not.toBeNull();
+    expect(aggressive!.suggested_food_calories).toBe(1200); // safe female floor
+    expect(aggressive!.is_aggressive).toBe(true);
+    expect(aggressive!.recommended_min_days).toBeGreaterThan(30);
   });
 });
