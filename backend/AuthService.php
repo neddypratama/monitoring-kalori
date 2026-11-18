@@ -50,16 +50,20 @@ final class AuthService
 
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare(
-            'INSERT INTO users (username, full_name, password_hash, role_id, is_active) VALUES (?, ?, ?, ?, 1)'
+            'INSERT INTO users (username, full_name, password_hash, role_id, is_active) VALUES (?, ?, ?, ?, 0)'
         );
         $stmt->execute([$cleanUser, $cleanName, $hash, (int) $roleRow['id']]);
         $userId = (int) $pdo->lastInsertId();
 
-        AuditService::record($pdo, $userId, $cleanUser, 'register', 'user', $userId, $userId, 'Registrasi akun mandiri');
+        AuditService::record($pdo, $userId, $cleanUser, 'register', 'user', $userId, $userId, 'Registrasi akun mandiri (menunggu aktivasi Admin)');
 
-        $token = self::createSession($pdo, $userId);
         $authUser = self::getUserWithRole($pdo, $userId);
-        return ['user' => $authUser, 'token' => $token];
+        return [
+            'user' => $authUser,
+            'token' => null,
+            'pending_activation' => true,
+            'message' => 'Pendaftaran berhasil! Akun Anda belum aktif dan sedang menunggu aktivasi dari Admin.',
+        ];
     }
 
     /**
@@ -80,7 +84,7 @@ final class AuthService
             throw new InvalidArgumentException('Username atau password salah.');
         }
         if ((int) $user['is_active'] !== 1) {
-            throw new InvalidArgumentException('Akun Anda sedang dinonaktifkan oleh Admin.');
+            throw new InvalidArgumentException('Akun Anda belum aktif atau sedang dinonaktifkan. Hubungi Admin untuk mengaktifkan akun Anda.');
         }
 
         $userId = (int) $user['id'];

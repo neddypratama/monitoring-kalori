@@ -110,7 +110,11 @@ final class Router
             (string) ($body['full_name'] ?? ''),
             (string) ($body['password'] ?? '')
         );
-        return self::ok(['user' => $res['user']], 201, ['session_token' => $res['token']]);
+        return self::ok([
+            'user' => $res['user'],
+            'pending_activation' => (bool) ($res['pending_activation'] ?? true),
+            'message' => (string) ($res['message'] ?? 'Pendaftaran berhasil! Menunggu aktivasi Admin.'),
+        ], 201);
     }
 
     private static function handleLogout(PDO $pdo, string $method, ?string $token): array

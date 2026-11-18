@@ -29,19 +29,29 @@ Assert::test('fresh database seeds system roles (admin, user) and default admin 
     Assert::true(password_verify('admin123', (string) $admin['password_hash']), 'Default admin password hash invalid');
 });
 
-Assert::test('register, login, session authenticate, changePassword, and logout work with audit logs', function (): void {
+Assert::test('register creates inactive user pending admin activation; login, changePassword, and logout work after activation', function (): void {
     $pdo = Database::connect(':memory:');
 
     $reg = AuthService::register($pdo, 'siti_diet', 'Siti Rahma', 'rahasia123');
     Assert::equals('siti_diet', $reg['user']['username']);
     Assert::equals('user', $reg['user']['role_name']);
-    Assert::true(strlen($reg['token']) === 64);
+    Assert::equals(false, $reg['user']['is_active']);
+    Assert::equals(true, $reg['pending_activation']);
+    Assert::equals(null, $reg['token']);
+
+    // Cannot login while still pending admin activation
+    Assert::throws(InvalidArgumentException::class, fn() => AuthService::login($pdo, 'siti_diet', 'rahasia123'));
 
     // Duplicate username rejected
     Assert::throws(InvalidArgumentException::class, fn() => AuthService::register($pdo, 'SITI_DIET', 'Siti 2', 'rahasia123'));
 
+    // Admin activates user -> now login & session authentication succeed
+    $pdo->prepare('UPDATE users SET is_active = 1 WHERE id = ?')->execute([$reg['user']['id']]);
+    $loginFirst = AuthService::login($pdo, 'siti_diet', 'rahasia123');
+    Assert::true(strlen($loginFirst['token']) === 64);
+
     // Authenticate session
-    $authUser = AuthService::authenticate($pdo, $reg['token']);
+    $authUser = AuthService::authenticate($pdo, $loginFirst['token']);
     Assert::true($authUser !== null);
     Assert::equals($reg['user']['id'], $authUser['id']);
     Assert::equals(false, AuthService::hasPermission($authUser, 'can_manage_users'));
@@ -58,7 +68,7 @@ Assert::test('register, login, session authenticate, changePassword, and logout 
     AuthService::logout($pdo, $loginNew['token']);
     Assert::equals(null, AuthService::authenticate($pdo, $loginNew['token']));
 
-    // Inactive user cannot login
+    // Deactivated user cannot login
     $pdo->prepare('UPDATE users SET is_active = 0 WHERE id = ?')->execute([$reg['user']['id']]);
     Assert::throws(InvalidArgumentException::class, fn() => AuthService::login($pdo, 'siti_diet', 'barupass99'));
 

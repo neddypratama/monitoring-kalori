@@ -233,9 +233,11 @@ Assert::test('Router saves multi-provider AI settings and protects admin/setting
     Assert::equals(90, (int) $prof['payload']['data']['profile']['program_duration_days']);
     Assert::true(isset($prof['payload']['data']['metrics']['diet_plan']['suggested_exercise_burn']));
 
-    // Regular user gets 403 on admin/settings
+    // Regular user registers (pending activation) -> Admin activates -> regular user gets 403 on admin/settings
     $reg = Router::handle($pdo, 'POST', 'auth/register', [], ['username' => 'u_biasa', 'full_name' => 'Biasa', 'password' => 'pass1234']);
-    $userToken = (string) $reg['session_token'];
+    $regUserId = (int) $reg['payload']['data']['user']['id'];
+    Router::handle($pdo, 'PUT', 'admin/users', ['id' => $regUserId], ['is_active' => true], $adminToken);
+    $userToken = (string) Router::handle($pdo, 'POST', 'auth/login', [], ['username' => 'u_biasa', 'password' => 'pass1234'])['session_token'];
     Assert::equals(403, Router::handle($pdo, 'GET', 'admin/settings', [], [], $userToken)['status']);
 
     // Admin saves Gemini + Groq API keys & primary provider = groq

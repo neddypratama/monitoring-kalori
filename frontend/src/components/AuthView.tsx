@@ -17,10 +17,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessNotice(null);
 
     if (mode === 'register' && password !== confirmPassword) {
       setError('Konfirmasi password tidak cocok.');
@@ -38,6 +40,17 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
           full_name: fullName.trim(),
           password,
         });
+        if (res.pending_activation || !res.user.is_active) {
+          setMode('login');
+          setPassword('');
+          setConfirmPassword('');
+          setFullName('');
+          setSuccessNotice(
+            res.message ||
+              `Pendaftaran @${res.user.username} berhasil! Akun Anda belum aktif — silakan tunggu atau hubungi Admin untuk mengaktifkan akun sebelum masuk.`
+          );
+          return;
+        }
         onAuthenticated(res.user);
       }
     } catch (err) {
@@ -77,6 +90,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
               onClick={() => {
                 setMode('register');
                 setError(null);
+                setSuccessNotice(null);
               }}
               className={`py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                 mode === 'register' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600'
@@ -161,12 +175,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
             </div>
           )}
 
+          {mode === 'register' && !submitting && !error && (
+            <FormStatusBanner
+              variant="info"
+              message="Setelah mendaftar, akun baru berstatus Belum Aktif dan perlu diaktifkan oleh Admin sebelum bisa masuk."
+            />
+          )}
           {submitting && (
             <FormStatusBanner
               variant="loading"
               message={mode === 'login' ? 'Memverifikasi akun & memuat data Anda...' : 'Mendaftarkan akun baru...'}
             />
           )}
+          {!submitting && successNotice && <FormStatusBanner variant="success" message={successNotice} />}
           {error && <FormStatusBanner variant="error" message={error} />}
 
           <button
@@ -181,7 +202,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
             ) : (
               <UserPlus className="w-4 h-4" />
             )}
-            {submitting ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar & Mulai'}
+            {submitting ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar Akun'}
           </button>
         </form>
       </div>

@@ -179,6 +179,30 @@ describe('KaloriKu UI flows', () => {
     expect(await screen.findByText(/Selamat Datang di KaloriKu/i)).toBeInTheDocument();
   });
 
+  it('shows pending admin activation notice on register without auto-logging in', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.getMe).mockResolvedValueOnce({ authenticated: false, user: null });
+    vi.mocked(api.register).mockResolvedValueOnce({
+      user: { ...REGULAR_USER, is_active: false },
+      pending_activation: true,
+      message: 'Pendaftaran berhasil! Akun Anda belum aktif dan sedang menunggu aktivasi dari Admin.',
+    });
+
+    render(<App />);
+
+    await user.click(await screen.findByRole('button', { name: /Daftar Baru/i }));
+    expect(screen.getByText(/berstatus Belum Aktif/i)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Nama Lengkap/i), 'Siti Rahma');
+    await user.type(screen.getByLabelText(/Username/i), 'siti');
+    await user.type(screen.getByLabelText(/^Password$/i), 'rahasia123');
+    await user.type(screen.getByLabelText(/Ulangi Password/i), 'rahasia123');
+    await user.click(screen.getByRole('button', { name: /Daftar Akun/i }));
+
+    expect(await screen.findByText(/menunggu aktivasi dari Admin/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Selamat Datang di KaloriKu/i)).not.toBeInTheDocument();
+  });
+
   it('shows OnboardingView for authenticated user without profile and submits profile', async () => {
     const user = userEvent.setup();
     vi.mocked(api.getMe).mockResolvedValueOnce({ authenticated: true, user: REGULAR_USER });

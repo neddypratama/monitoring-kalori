@@ -16,20 +16,34 @@ Assert::test('unauthenticated request to protected route returns 401', function 
 });
 
 Assert::test('user isolation: User A and User B have separate profiles, logs, weights, custom foods, and favorites', function () use ($pdo): void {
-    // Register User A & User B
+    // Register User A & User B (created inactive until Admin activates them)
     $regA = Router::handle($pdo, 'POST', 'auth/register', [], [
         'username' => 'user_a', 'full_name' => 'User A', 'password' => 'pass1234',
     ]);
     Assert::equals(201, $regA['status']);
-    $tokenA = $regA['session_token'];
+    Assert::equals(true, $regA['payload']['data']['pending_activation']);
+    Assert::equals(false, $regA['payload']['data']['user']['is_active']);
+    Assert::true(empty($regA['session_token']), 'Pending user must not receive session token');
     $idA = (int) $regA['payload']['data']['user']['id'];
+
+    // User A cannot login before admin activation
+    Assert::equals(400, Router::handle($pdo, 'POST', 'auth/login', [], ['username' => 'user_a', 'password' => 'pass1234'])['status']);
 
     $regB = Router::handle($pdo, 'POST', 'auth/register', [], [
         'username' => 'user_b', 'full_name' => 'User B', 'password' => 'pass1234',
     ]);
     Assert::equals(201, $regB['status']);
-    $tokenB = $regB['session_token'];
     $idB = (int) $regB['payload']['data']['user']['id'];
+
+    // Admin activates User A & User B
+    $adminLogin = Router::handle($pdo, 'POST', 'auth/login', [], ['username' => 'admin', 'password' => 'admin123']);
+    $adminToken = (string) $adminLogin['session_token'];
+    Assert::equals(200, Router::handle($pdo, 'PUT', 'admin/users', ['id' => $idA], ['is_active' => true], $adminToken)['status']);
+    Assert::equals(200, Router::handle($pdo, 'PUT', 'admin/users', ['id' => $idB], ['is_active' => true], $adminToken)['status']);
+
+    // Now User A & User B can login
+    $tokenA = (string) Router::handle($pdo, 'POST', 'auth/login', [], ['username' => 'user_a', 'password' => 'pass1234'])['session_token'];
+    $tokenB = (string) Router::handle($pdo, 'POST', 'auth/login', [], ['username' => 'user_b', 'password' => 'pass1234'])['session_token'];
 
     // User A creates profile & logs food + weight
     Router::handle($pdo, 'POST', 'profile', [], [

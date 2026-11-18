@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Activity,
+  CheckCircle2,
+  Clock,
   Edit3,
   Eye,
   Flame,
@@ -32,6 +34,8 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'active'>('all');
+  const [activatingId, setActivatingId] = useState<number | null>(null);
 
   // Create / Edit User modal
   const [showForm, setShowForm] = useState(false);
@@ -142,6 +146,26 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
     }
   };
 
+  const handleActivateUser = async (u: AdminUserSummary) => {
+    setActivatingId(u.id);
+    try {
+      await api.updateAdminUser(u.id, { is_active: true });
+      onNotify('success', `Akun @${u.username} berhasil diaktifkan dan kini bisa login.`);
+      await loadData();
+    } catch (err) {
+      onNotify('error', err instanceof Error ? err.message : 'Gagal mengaktifkan user.');
+    } finally {
+      setActivatingId(null);
+    }
+  };
+
+  const pendingCount = users.filter((u) => !u.is_active).length;
+  const visibleUsers = users.filter((u) => {
+    if (statusFilter === 'pending') return !u.is_active;
+    if (statusFilter === 'active') return u.is_active;
+    return true;
+  });
+
   const openMonitor = async (uid: number, nextRange: DashboardRange = '7d') => {
     setMonitorUserId(uid);
     setOverviewRange(nextRange);
@@ -179,14 +203,66 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
         )}
       </div>
 
+      {/* Pending Activation Alert & Status Filter Bar */}
+      {!loading && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {pendingCount > 0 ? (
+            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Ada <strong>{pendingCount} akun</strong> berstatus belum aktif / menunggu aktivasi Admin.
+              </span>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          <div className="inline-flex p-1 rounded-xl bg-slate-100 self-start">
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
+                statusFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+              }`}
+            >
+              Semua ({users.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('pending')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
+                statusFilter === 'pending' ? 'bg-amber-500 text-white shadow-xs' : 'text-amber-700'
+              }`}
+            >
+              Belum Aktif ({pendingCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('active')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
+                statusFilter === 'active' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600'
+              }`}
+            >
+              Aktif ({users.length - pendingCount})
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-sm text-slate-500">Memuat daftar user...</div>
+        ) : visibleUsers.length === 0 ? (
+          <div className="p-8 text-center text-sm text-slate-400">
+            {statusFilter === 'pending'
+              ? 'Tidak ada akun yang menunggu aktivasi saat ini.'
+              : 'Belum ada user pada filter ini.'}
+          </div>
         ) : (
           <>
             {/* Mobile Card List */}
             <div className="md:hidden divide-y divide-slate-100">
-              {users.map((u) => (
+              {visibleUsers.map((u) => (
                 <div key={`m-${u.id}`} className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -208,10 +284,10 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                          u.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                          u.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-100 text-amber-800'
                         }`}
                       >
-                        {u.is_active ? 'Aktif' : 'Nonaktif'}
+                        {u.is_active ? 'Aktif' : 'Belum Aktif'}
                       </span>
                     </div>
                   </div>
@@ -233,11 +309,26 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
                     <span className="text-[11px] text-slate-500 tabular-nums">
                       {u.total_food_logs} makan • {u.total_activity_logs} akt • {u.total_weight_logs} BB
                     </span>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {canManage && !u.is_active && (
+                        <button
+                          type="button"
+                          disabled={activatingId === u.id}
+                          onClick={() => handleActivateUser(u)}
+                          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold cursor-pointer"
+                        >
+                          {activatingId === u.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          )}
+                          Aktifkan
+                        </button>
+                      )}
                       {canViewData && (
                         <button
                           type="button"
@@ -289,8 +380,8 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50/70">
+                  {visibleUsers.map((u) => (
+                    <tr key={u.id} className={`hover:bg-slate-50/70 ${!u.is_active ? 'bg-amber-50/30' : ''}`}>
                       <td className="py-3.5 px-4">
                         <p className="font-bold text-slate-900">
                           {u.full_name || u.username}{' '}
@@ -311,10 +402,10 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                              u.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                              u.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-100 text-amber-800'
                             }`}
                           >
-                            {u.is_active ? 'Aktif' : 'Nonaktif'}
+                            {u.is_active ? 'Aktif' : 'Belum Aktif'}
                           </span>
                         </div>
                       </td>
@@ -335,6 +426,21 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center justify-end gap-1.5">
+                          {canManage && !u.is_active && (
+                            <button
+                              type="button"
+                              disabled={activatingId === u.id}
+                              onClick={() => handleActivateUser(u)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-bold cursor-pointer"
+                            >
+                              {activatingId === u.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Aktifkan
+                            </button>
+                          )}
                           {canViewData && (
                             <button
                               type="button"

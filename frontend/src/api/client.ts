@@ -63,7 +63,7 @@ export const api = {
   getMe: () => request<AuthMeResponse>('GET', 'auth/me'),
   login: (body: { username: string; password: string }) => request<{ user: AuthUser }>('POST', 'auth/login', { body }),
   register: (body: { username: string; full_name: string; password: string }) =>
-    request<{ user: AuthUser }>('POST', 'auth/register', { body }),
+    request<{ user: AuthUser; pending_activation?: boolean; message?: string }>('POST', 'auth/register', { body }),
   logout: () => request<{ logged_out: boolean }>('POST', 'auth/logout'),
   changePassword: (body: { current_password: string; new_password: string }) =>
     request<{ changed: boolean }>('POST', 'auth/change-password', { body }),
