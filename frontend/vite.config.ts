@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
@@ -25,3 +26,32 @@ export default defineConfig({
     setupFiles: ['./src/__tests__/setup.ts'],
   },
 });
+=======
+/// <reference types="vitest" />
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  base: './',
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api.php': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/__tests__/setup.ts'],
+  },
+});
+>>>>>>> 14f90995ced414a546f88517b9802fe68493c8b9
