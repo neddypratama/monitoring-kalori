@@ -51,7 +51,7 @@ echo ""
 echo "🗄️  [3/4] Menyiapkan folder database SQLite & menjalankan auto-migrasi..."
 mkdir -p storage
 chmod 775 storage 2>/dev/null || chmod 755 storage 2>/dev/null || true
-php -r 'require_once "backend/Database.php"; Database::connect(); echo "Database SQLite siap & termigrasi.\n";'
+php -d display_errors=1 backend/migrate.php
 
 if [ -n "$TARGET_DIR" ]; then
     echo ""
@@ -61,7 +61,7 @@ if [ -n "$TARGET_DIR" ]; then
     rm -rf "$TARGET_DIR/backend" "$TARGET_DIR/dist"
     cp -r backend dist "$TARGET_DIR"/
     chmod 775 "$TARGET_DIR/storage" 2>/dev/null || chmod 755 "$TARGET_DIR/storage" 2>/dev/null || true
-    (cd "$TARGET_DIR" && php -r 'require_once "backend/Database.php"; Database::connect(); echo "Database target siap.\n";')
+    (cd "$TARGET_DIR" && php -d display_errors=1 backend/migrate.php)
     echo "✅ Sinkronisasi ke $TARGET_DIR selesai (database existing tetap aman)."
 else
     echo ""

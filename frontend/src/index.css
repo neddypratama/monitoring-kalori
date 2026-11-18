@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 @import "tailwindcss";
 
 @layer base {
@@ -12,18 +11,3 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
-=======
-@import "tailwindcss";
-
-@layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background-color: #f8fafc;
-    color: #0f172a;
-  }
-}
-
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
->>>>>>> 14f90995ced414a546f88517b9802fe68493c8b9
