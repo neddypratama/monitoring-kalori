@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Manual Book — KaloriKu (Sistem Monitoring Kalori &amp; Program Diet)</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 14mm 15mm 14mm 15mm;
+    }
+    @page :first {
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      line-height: 1.5;
+      font-size: 10pt;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* === COVER PAGE === */
+    .cover {
+      width: 210mm;
+      height: 297mm;
+      background: linear-gradient(155deg, #064e3b 0%, #047857 42%, #0f766e 78%, #0f172a 100%);
+      color: #ffffff;
+      padding: 26mm 22mm 22mm 22mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover-accent {
+      position: absolute;
+      width: 140mm;
+      height: 140mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(52, 211, 153, 0.22) 0%, rgba(52, 211, 153, 0) 70%);
+      top: -35mm;
+      right: -35mm;
+    }
+    .cover-accent-2 {
+      position: absolute;
+      width: 120mm;
+      height: 120mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.14) 0%, rgba(251, 191, 36, 0) 70%);
+      bottom: -25mm;
+      left: -25mm;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      z-index: 2;
+    }
+    .brand-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .brand-tag {
+      font-size: 10pt;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #a7f3d0;
+      font-weight: 700;
+    }
+    .cover-main {
+      position: relative;
+      z-index: 2;
+      margin-top: 12mm;
+    }
+    .cover-pill {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.25);
+      border: 1px solid rgba(167, 243, 208, 0.45);
+      color: #d1fae5;
+      font-size: 9.5pt;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    .cover h1 {
+      font-size: 38pt;
+      line-height: 1.08;
+      margin: 0 0 14px 0;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+    }
+    .cover-sub {
+      font-size: 14pt;
+      color: #d1fae5;
+      max-width: 148mm;
+      margin: 0 0 28px 0;
+      font-weight: 400;
+    }
+    .cover-features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .cover-card {
+      background: rgba(255, 255, 255, 0.10);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .cover-card-title {
+      font-weight: 700;
+      font-size: 10.5pt;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .cover-card-desc {
+      font-size: 9pt;
+      color: #ccfbf1;
+      line-height: 1.4;
+    }
+    .cover-footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 9.5pt;
+      color: #a7f3d0;
+    }
+    .cover-footer strong {
+      color: #ffffff;
+      display: block;
+      font-size: 10.5pt;
+    }
+
+    /* === CONTENT PAGES === */
+    .page-break {
+      page-break-before: always;
+    }
+    .section-kicker {
+      font-size: 8.5pt;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #059669;
+      margin: 0 0 4px 0;
+    }
+    h2 {
+      font-size: 17pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 12px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+      letter-spacing: -0.01em;
+    }
+    h3 {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #065f46;
+      margin: 16px 0 6px 0;
+    }
+    p {
+      margin: 0 0 9px 0;
+      color: #334155;
+    }
+    ul, ol {
+      margin: 4px 0 10px 0;
+      padding-left: 20px;
+      color: #334155;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    code {
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 9.2pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 5px;
+      border-radius: 5px;
+      border: 1px solid #e2e8f0;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 9pt;
+      overflow-x: auto;
+      margin: 8px 0 12px 0;
+      line-height: 1.45;
+    }
+
+    /* === TOC === */
+    .toc-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 18px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+    .toc-item {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 9.8pt;
+      color: #1e293b;
+      padding: 3px 0;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+    .toc-num {
+      font-weight: 800;
+      color: #059669;
+      min-width: 22px;
+    }
+
+    /* === CARDS & CALLOUTS === */
+    .callout {
+      border-radius: 12px;
+      padding: 11px 14px;
+      margin: 10px 0 14px 0;
+      font-size: 9.6pt;
+      break-inside: avoid;
+    }
+    .callout-emerald {
+      background: #ecfdf5;
+      border-left: 4px solid #10b981;
+      color: #064e3b;
+    }
+    .callout-amber {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      color: #78350f;
+    }
+    .callout-sky {
+      background: #f0f9ff;
+      border-left: 4px solid #0284c7;
+      color: #0c4a6e;
+    }
+    .callout-indigo {
+      background: #eef2ff;
+      border-left: 4px solid #4f46e5;
+      color: #312e81;
+    }
+    .callout strong {
+      display: inline;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 10px 0 14px 0;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin: 10px 0 14px 0;
+    }
+    .box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      break-inside: avoid;
+    }
+    .box-title {
+      font-weight: 800;
+      font-size: 10pt;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .box p {
+      font-size: 9.3pt;
+      margin: 0;
+    }
+
+    /* === BADGES === */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+    }
+    .b-emerald { background: #d1fae5; color: #065f46; }
+    .b-sky { background: #e0f2fe; color: #075985; }
+    .b-amber { background: #fef3c7; color: #92400e; }
+    .b-slate { background: #e2e8f0; color: #334155; }
+    .b-indigo { background: #e0e7ff; color: #3730a3; }
+
+    /* === TABLES === */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px 0;
+      font-size: 9.4pt;
+      break-inside: avoid;
+    }
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      text-align: left;
+      padding: 8px 10px;
+      font-weight: 700;
+      font-size: 8.8pt;
+      letter-spacing: 0.03em;
+    }
+    th:first-child { border-top-left-radius: 8px; }
+    th:last-child { border-top-right-radius: 8px; }
+    td {
+      padding: 6.5px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      color: #334155;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .step-list {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 12px 0;
+    }
+    .step-list > li {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 7px;
+      align-items: flex-start;
+    }
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #059669;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 9pt;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 8.5pt;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== COVER PAGE ==================== -->
+  <section class="cover">
+    <div class="cover-accent"></div>
+    <div class="cover-accent-2"></div>
+
+    <div class="brand-row">
+      <div class="brand-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-tag">Manual Book &amp; Panduan Pengguna</div>
+        <div style="font-size: 13pt; font-weight: 800;">KaloriKu Web Application</div>
+      </div>
+    </div>
+
+    <div class="cover-main">
+      <div class="cover-pill">Panduan Resmi User &amp; Administrator • Versi 1.0</div>
+      <h1>KaloriKu</h1>
+      <p class="cover-sub">
+        Sistem Monitoring Kalori Masuk, Kalori Keluar, &amp; Evaluasi Program Diet Berbasis Perkembangan Berat Badan Harian
+      </p>
+
+      <div class="cover-features">
+        <div class="cover-card">
+          <div class="cover-card-title">Auto-Hitung Makanan &amp; Open Food Facts</div>
+          <div class="cover-card-desc">132 katalog makanan Indonesia lokal, pencarian produk kemasan online real-time, serta katalog pribadi.</div>
+        </div>
+        <div class="cover-card">
+          <div class="cover-card-title">Aktivitas Berbasis Jarak &amp; Durasi</div>
+          <div class="cover-card-desc">29 aktivitas standar MET mendukung satuan meter, km, dan menit (misal Jalan Santai 500 m) memakai BB terkini.</div>
+        </div>
+        <div class="cover-card">
+          <div class="cover-card-title">Korelasi Kalori vs Berat Badan</div>
+          <div class="cover-card-desc">Evaluasi otomatis membandingkan tren BB aktual terhadap proyeksi teoritis dari akumulasi kalori (1 kg ≈ 7.700 kkal).</div>
+        </div>
+        <div class="cover-card">
+          <div class="cover-card-title">Multi-User, RBAC, &amp; Audit Log</div>
+          <div class="cover-card-desc">Data terisolasi per akun, kelola user &amp; role dinamis, pemantauan diet oleh Admin, dan log sistem lengkap.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cover-footer">
+      <div>
+        Alamat Aplikasi Web
+        <strong>https://kalori.bimapratama.com/</strong>
+      </div>
+      <div style="text-align: right;">
+        Edisi Dokumentasi
+        <strong>November 2026 • v1.0</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== PAGE 2: TOC & OVERVIEW ==================== -->
+  <section>
+    <p class="section-kicker">Bagian 1 • Pengenalan</p>
+    <h2>Daftar Isi &amp; Gambaran Umum</h2>
+
+    <div class="toc-grid">
+      <div class="toc-item"><span class="toc-num">01</span> Gambaran Umum &amp; Cara Akses</div>
+      <div class="toc-item"><span class="toc-num">05</span> Catatan Harian, Katalog, &amp; Profil</div>
+      <div class="toc-item"><span class="toc-num">02</span> Login, Daftar Akun, &amp; Onboarding</div>
+      <div class="toc-item"><span class="toc-num">06</span> Panel Admin (User, Role, &amp; Log Sistem)</div>
+      <div class="toc-item"><span class="toc-num">03</span> Dashboard &amp; Evaluasi Kalori vs BB</div>
+      <div class="toc-item"><span class="toc-num">07</span> Referensi Rumus Perhitungan</div>
+      <div class="toc-item"><span class="toc-num">04</span> Catat Makan, Aktivitas, &amp; Berat Badan</div>
+      <div class="toc-item"><span class="toc-num">08</span> FAQ &amp; Pemecahan Masalah</div>
+    </div>
+
+    <h3>Apa itu KaloriKu?</h3>
+    <p>
+      <strong>KaloriKu</strong> adalah aplikasi web pemantau kalori dan program diet yang dirancang agar pencatatan harian terasa cepat (&lt;10 detik per entri) tanpa perlu menghitung angka kalori secara manual. Dengan menggabungkan <strong>kalori masuk</strong>, <strong>kalori keluar</strong>, dan <strong>penimbangan berat badan harian</strong>, pengguna dapat langsung mengevaluasi apakah pola kalori yang dicatat benar-benar tercermin pada perkembangan berat badannya.
+    </p>
+
+    <h3>Cara Mengakses Aplikasi</h3>
+    <div class="grid-2">
+      <div class="box">
+        <div class="box-title">1. Akses Online (Server Produksi)</div>
+        <p>Buka browser di HP maupun laptop (Chrome, Edge, Safari, atau Firefox) lalu kunjungi:</p>
+        <p style="margin-top:6px;"><code>https://kalori.bimapratama.com/</code></p>
+      </div>
+      <div class="box">
+        <div class="box-title">2. Akses Lokal (Laragon / PC)</div>
+        <p>Jalankan Laragon lalu buka <code>http://monitoring-kalori.test/</code> atau jalankan <code>php -S 127.0.0.1:8000</code> di folder proyek.</p>
+      </div>
+    </div>
+
+    <h3>Alur Pemakaian Harian (4 Langkah Singkat)</h3>
+    <div class="grid-2">
+      <div class="box">
+        <div class="box-title">1. Timbang Pagi &amp; Catat BB</div>
+        <p>Masukkan berat badan harian agar TDEE, target kalori, dan pembakaran olahraga selalu memakai berat badan terkini.</p>
+      </div>
+      <div class="box">
+        <div class="box-title">2. Catat Makanan &amp; Minuman</div>
+        <p>Pilih dari katalog lokal, cari produk kemasan di Open Food Facts, atau input manual — kalori &amp; makro terhitung otomatis.</p>
+      </div>
+      <div class="box">
+        <div class="box-title">3. Catat Olahraga / Aktivitas</div>
+        <p>Input jalan kaki (misal 500 m), lari, sepeda, gym, atau aktivitas harian dalam satuan meter, km, atau menit.</p>
+      </div>
+      <div class="box">
+        <div class="box-title">4. Evaluasi di Dashboard</div>
+        <p>Pantau sisa kuota kalori hari ini, grafik tren berat badan, dan status kesesuaian program diet Anda.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-emerald">
+      <strong>Tips Input Angka:</strong> Seluruh kolom angka di KaloriKu (berat badan, tinggi badan, jumlah porsi, jarak, dan kalori) mendukung tanda <strong>koma (<code>,</code>)</strong> maupun <strong>titik (<code>.</code>)</strong>, misalnya <code>68,5</code> atau <code>1,5</code> piring.
+    </div>
+  </section>
+
+  <!-- ==================== PAGE 3: AUTH & ONBOARDING ==================== -->
+  <section class="page-break">
+    <p class="section-kicker">Bagian 2 • Memulai</p>
+    <h2>Login, Daftar Akun Baru, &amp; Pengaturan Profil Awal</h2>
+
+    <h3>A. Masuk Akun &amp; Daftar Mandiri</h3>
+    <p>Saat pertama kali membuka KaloriKu, Anda akan berada di halaman autentikasi dengan dua tab utama:</p>
+    <ul>
+      <li><strong>Masuk Akun:</strong> Masukkan <strong>Username</strong> dan <strong>Password</strong> Anda, lalu klik tombol <strong>Masuk</strong>. Sesi login tersimpan aman di cookie browser (berlaku 30 hari sampai Anda klik <em>Keluar</em>).</li>
+      <li><strong>Daftar Baru:</strong> Pengguna baru dapat mendaftar mandiri dengan mengisi <em>Nama Lengkap</em>, <em>Username</em> (3–32 karakter: huruf, angka, titik, <code>_</code>, atau <code>-</code>), <em>Password</em> (minimal 6 karakter), dan konfirmasi password. Akun baru otomatis mendapat role <code>user</code>.</li>
+    </ul>
+
+    <div class="callout callout-amber">
+      <strong>Catatan Akun Admin Awal:</strong> Saat instalasi pertama, sistem membuat 1 akun Administrator bawaan (<code>admin</code> / <code>admin123</code>). Demi keamanan, <strong>segera ubah password Admin</strong> melalui menu <em>Profil &amp; Diet → Keamanan Akun — Ubah Password</em> setelah login pertama.
+    </div>
+
+    <h3>B. Pengaturan Profil Awal (Onboarding)</h3>
+    <p>Setelah akun baru dibuat dan masuk pertama kali, sistem menampilkan layar <strong>Selamat Datang di KaloriKu</strong> untuk mengatur parameter program diet Anda:</p>
+
+    <ol class="step-list">
+      <li><span class="step-num">1</span><div><strong>Data Tubuh Dasar:</strong> Isi <em>Nama Panggilan</em> (opsional), <em>Berat Badan Saat Ini (kg)</em>, <em>Tinggi Badan (cm)</em>, <em>Usia (tahun)</em>, dan pilih <em>Jenis Kelamin</em>.</div></li>
+      <li><span class="step-num">2</span><div><strong>Tujuan Program Diet:</strong> Pilih salah satu mode berikut:
+        <ul>
+          <li><strong>Turun Berat Badan:</strong> target defisit sehat ~500 kkal/hari (batas aman minimal 1.200 kkal untuk perempuan dan 1.500 kkal untuk laki-laki).</li>
+          <li><strong>Jaga Berat Badan:</strong> target kalori setara kebutuhan harian (TDEE).</li>
+          <li><strong>Naik Berat Badan:</strong> target surplus ringan ~300 kkal/hari.</li>
+        </ul>
+      </div></li>
+      <li><span class="step-num">3</span><div><strong>Target Berat Badan &amp; Tingkat Aktivitas:</strong> Masukkan target BB opsional (akan muncul sebagai garis target kuning di grafik), lalu pilih <em>Tingkat Aktivitas Harian</em>.</div></li>
+      <li><span class="step-num">4</span><div><strong>Pratinjau Otomatis &amp; Simpan:</strong> Panel kanan secara real-time menampilkan estimasi <strong>Target Kalori Harian</strong>, <strong>BMI (Kemenkes RI)</strong>, <strong>BMR</strong>, dan <strong>TDEE</strong>. Klik <strong>Mulai Program Diet</strong> — berat badan awal Anda juga otomatis dicatat sebagai titik pertama grafik BB harian.</div></li>
+    </ol>
+
+    <div class="callout callout-sky">
+      <strong>Rekomendasi Tingkat Aktivitas:</strong> Pilih <strong>Sedentari (1,2)</strong> jika Anda rutin mencatat jalan kaki dan olahraga secara terpisah di menu <em>Catat Aktivitas</em>, agar kalori yang terbakar tidak terhitung ganda.
+    </div>
+  </section>
+
+  <!-- ==================== PAGE 4: DASHBOARD & EVALUATION ==================== -->
+  <section class="page-break">
+    <p class="section-kicker">Bagian 3 • Dashboard &amp; Analisis</p>
+    <h2>Memahami Dashboard &amp; Evaluasi Kalori vs Berat Badan</h2>
+
+    <p>Halaman <strong>Dashboard</strong> merangkum seluruh perkembangan hari ini sekaligus menganalisis konsistensi program diet Anda secara visual.</p>
+
+    <h3>A. Kartu Ringkasan Hari Ini</h3>
+    <div class="grid-3">
+      <div class="box">
+        <div class="box-title" style="color:#059669;">Kalori Masuk Hari Ini</div>
+        <p>Lingkaran progres terhadap kuota harian (<code>Target + Olahraga</code>) lengkap dengan status <strong>Sisa Kuota</strong> atau <strong>Melebihi</strong>.</p>
+      </div>
+      <div class="box">
+        <div class="box-title" style="color:#d97706;">Kalori Keluar Aktivitas</div>
+        <p>Total kalori terbakar dari aktivitas hari ini, total pengeluaran (<code>TDEE + Olahraga</code>), dan keseimbangan kalori netto.</p>
+      </div>
+      <div class="box">
+        <div class="box-title" style="color:#4338ca;">Berat Badan Terkini</div>
+        <p>Menampilkan BB terbaru, selisih dari BB awal, status timbang hari ini, dan lencana kategori <strong>BMI Kemenkes RI</strong>.</p>
+      </div>
+    </div>
+    <p>Di bawah ketiga kartu tersebut terdapat batang <strong>Ringkasan Makro Hari Ini</strong> yang memperlihatkan proporsi gram <em>Protein</em> (hijau), <em>Karbohidrat</em> (biru), dan <em>Lemak</em> (kuning).</p>
+
+    <h3>B. Kartu Evaluasi Program Diet (Kalori vs BB)</h3>
+    <p>
+      Fitur inti ini membandingkan <strong>Perubahan BB Aktual</strong> dengan <strong>Estimasi Perubahan BB Teoritis</strong> berdasarkan akumulasi keseimbangan kalori Anda (<code>1 kg lemak ≈ 7.700 kkal</code>). Anda dapat memilih rentang analisis <strong>7 Hari</strong>, <strong>14 Hari</strong>, <strong>30 Hari</strong>, atau <strong>Semua</strong>.
+    </p>
+    <p>
+      Agar hasil evaluasi adil dan tidak menyesatkan, sistem <strong>hanya menghitung hari-hari yang memiliki catatan makanan di dalam rentang tanggal penimbangan BB</strong>—hari saat Anda lupa mencatat tidak dihitung sebagai defisit palsu.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 28%;">Status Evaluasi</th>
+          <th style="width: 24%;">Kondisi</th>
+          <th>Arti &amp; Tindak Lanjut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge b-slate">Mengumpulkan Data</span></td>
+          <td>&lt; 3 hari BB atau &lt; 3 hari makan</td>
+          <td>Lanjutkan pencatatan hingga minimal 3 hari penimbangan dan 3 hari log makanan dalam rentang tersebut.</td>
+        </tr>
+        <tr>
+          <td><span class="badge b-emerald">Sesuai Jalur</span></td>
+          <td>Selisih dalam <code>±0,5 kg</code></td>
+          <td>Perubahan BB aktual selaras dengan catatan kalori masuk &amp; keluar Anda. Pertahankan konsistensi!</td>
+        </tr>
+        <tr>
+          <td><span class="badge b-sky">Turun Lebih Cepat</span></td>
+          <td>Aktual &lt; Estimasi − 0,5 kg</td>
+          <td>Penurunan lebih cepat dari proyeksi; biasanya karena aktivitas harian non-olahraga tinggi atau penurunan cairan tubuh.</td>
+        </tr>
+        <tr>
+          <td><span class="badge b-amber">Lebih Lambat</span></td>
+          <td>Aktual &gt; Estimasi + 0,5 kg</td>
+          <td>Cek kembali takaran porsi makanan, camilan/minuman manis yang mungkin terlewat dicatat, atau retensi air normal.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>C. Dua Grafik Interaktif</h3>
+    <ul>
+      <li><strong>Tren Berat Badan vs Proyeksi Kalori:</strong> Garis <em>BB Aktual</em> (indigo), <em>Rata-rata 7 Hari</em> (abu-abu putus-putus untuk meredam fluktuasi air harian), <em>Proyeksi Teoritis</em> dari kalori (hijau), dan garis <em>Target BB</em> (kuning).</li>
+      <li><strong>Kalori Masuk vs Kalori Keluar Harian:</strong> Grafik batang kalori makanan (hijau) berdampingan dengan kalori aktivitas (kuning) dan garis putus-putus target harian.</li>
+    </ul>
+  </section>
+
+  <!-- ==================== PAGE 5: DAILY LOGGING ==================== -->
+  <section class="page-break">
+    <p class="section-kicker">Bagian 4 • Pencatatan Cepat</p>
+    <h2>Mencatat Makanan, Aktivitas, &amp; Berat Badan</h2>
+
+    <h3>A. Catat Makan (3 Cara Fleksibel)</h3>
+    <p>Klik tombol <strong>Catat Makan</strong> di Dashboard atau sidebar, pilih <em>Tanggal</em> dan <em>Waktu Makan</em> (Sarapan, Makan Siang, Makan Malam, Camilan), lalu pilih tab:</p>
+
+    <div class="grid-3">
+      <div class="box">
+        <div class="box-title" style="color:#059669;">1. Tab Katalog (Lokal)</div>
+        <p>Berisi <strong>132 makanan &amp; minuman Indonesia/umum</strong> (instan &amp; offline). Item favorit selalu tampil paling atas. Pilih item, atur jumlah &amp; satuan (<code>piring</code>/<code>potong</code>/<code>gram</code>), lalu simpan.</p>
+      </div>
+      <div class="box">
+        <div class="box-title" style="color:#0284c7;">2. Tab Cari Online</div>
+        <p>Terhubung langsung ke <strong>Open Food Facts</strong> untuk produk kemasan (misal <em>Indomie</em>, <em>Ultra Milk</em>, <em>Milo</em>, <em>Fitbar</em>). Centang <em>Simpan ke katalog pribadi</em> agar lain kali bisa dipakai offline.</p>
+      </div>
+      <div class="box">
+        <div class="box-title" style="color:#475569;">3. Tab Manual</div>
+        <p>Untuk makanan khusus yang belum ada di katalog. Isi nama, estimasi kalori, jumlah, &amp; satuan. Tersedia opsi simpan ke katalog pribadi.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-emerald">
+      <strong>Contoh Auto-Hitung Makanan:</strong> Pilih <em>Nasi Putih</em> (1 piring = 150 g, 130 kkal/100 g), masukkan jumlah <code>1,5</code> piring → pratinjau langsung menghitung <strong>293 kkal</strong> (Protein 6,1 g • Karbo 63,0 g • Lemak 0,7 g) sebelum Anda klik <strong>Simpan Makanan</strong>.
+    </div>
+
+    <h3>B. Catat Aktivitas &amp; Olahraga (Jarak &amp; Durasi)</h3>
+    <p>Klik tombol <strong>Catat Aktivitas</strong> untuk merekam olahraga maupun aktivitas harian:</p>
+    <ol class="step-list">
+      <li><span class="step-num">1</span><div>Pilih aktivitas dari <strong>29 katalog berbasis MET</strong> (Jalan Santai, Jalan Cepat, Jogging, Lari, Bersepeda, Berenang, Gym, Badminton, Futsal, Yoga, Naik Tangga, hingga Menyapu/Mengepel).</div></li>
+      <li><span class="step-num">2</span><div>Untuk aktivitas berbasis jarak (jalan, lari, sepeda, renang), pilih satuan <strong><code>meter</code></strong>, <strong><code>km</code></strong>, atau <strong><code>menit</code></strong>. Untuk aktivitas lainnya, isi durasi dalam <strong><code>menit</code></strong>.</div></li>
+      <li><span class="step-num">3</span><div>Sistem otomatis membaca <strong>berat badan terkini Anda</strong> dan menampilkan estimasi durasi serta kalori terbakar sebelum disimpan.</div></li>
+    </ol>
+
+    <div class="callout callout-amber">
+      <strong>Contoh Auto-Hitung Jarak:</strong> Dengan BB <code>70 kg</code>, pilih <strong>Jalan Santai</strong>, satuan <strong><code>meter</code></strong>, isi <strong><code>500</code></strong> → sistem otomatis menghitung estimasi ~6,7 menit dan kalori keluar sebesar <strong>27 kkal</strong>. Anda juga bisa memakai tab <em>Manual</em> untuk memasukkan angka kalori langsung dari smartwatch.
+    </div>
+
+    <h3>C. Catat Berat Badan Harian</h3>
+    <p>Klik tombol <strong>Catat Berat Badan</strong>, pilih tanggal, isi berat badan (misal <code>69,4</code> kg), dan catatan opsional (misal <em>pagi setelah bangun tidur</em>). Sistem menyimpan <strong>1 catatan per tanggal</strong>—jika Anda menimbang ulang di tanggal yang sama, angka lama akan otomatis diperbarui.</p>
+  </section>
+
+  <!-- ==================== PAGE 6: LOGS, CATALOG, PROFILE ==================== -->
+  <section class="page-break">
+    <p class="section-kicker">Bagian 5 • Pengelolaan Data Pribadi</p>
+    <h2>Catatan Harian, Katalog, &amp; Pengaturan Profil</h2>
+
+    <h3>A. Halaman Catatan Harian</h3>
+    <p>Menu <strong>Catatan Harian</strong> memungkinkan Anda meninjau dan merapikan riwayat pada tanggal mana pun:</p>
+    <ul>
+      <li><strong>Navigasi Tanggal:</strong> Gunakan tombol panah <code>&lt;</code> / <code>&gt;</code>, pemilih kalender, atau tombol <strong>Hari Ini</strong>.</li>
+      <li><strong>Ringkasan Tanggal:</strong> Strip ringkas di atas menampilkan total Kalori Masuk, Kalori Aktivitas, Sisa Kuota Target, dan Berat Badan pada tanggal terpilih.</li>
+      <li><strong>Pengelompokan Waktu Makan:</strong> Daftar makanan dipisahkan rapi per <em>Sarapan, Makan Siang, Makan Malam,</em> dan <em>Camilan</em> lengkap dengan tombol <strong>+ Tambah</strong> di tiap kelompok.</li>
+      <li><strong>Edit &amp; Hapus Aman:</strong> Klik ikon <strong>pensil</strong> untuk mengubah porsi/catatan, atau klik ikon <strong>tempat sampah 2 kali</strong> (berubah menjadi tombol merah <em>Hapus?</em>) untuk menghapus tanpa popup yang mengganggu.</li>
+    </ul>
+
+    <h3>B. Halaman Katalog Makanan &amp; Aktivitas</h3>
+    <ul>
+      <li><strong>Pencarian &amp; Filter:</strong> Saring berdasarkan kategori (Makanan Pokok, Lauk, Sayur, Masakan Jadi, Buah, Minuman, Camilan) atau aktifkan filter <strong>Favorit</strong>.</li>
+      <li><strong>Tandai Favorit (Bintang):</strong> Item yang diberi bintang khusus untuk akun Anda dan otomatis muncul paling atas di modal Catat Makan / Aktivitas.</li>
+      <li><strong>Impor Open Food Facts:</strong> Klik tombol biru <strong>Cari Open Food Facts</strong> pada tab Makanan untuk mencari produk kemasan dan menyimpannya ke katalog pribadi dengan 1 klik.</li>
+      <li><strong>Item Kustom Aman:</strong> Klik <strong>Tambah Makanan Kustom</strong> atau <strong>Tambah Aktivitas Kustom</strong>. Item buatan Anda berlabel <span class="badge b-emerald">Kustom</span> (dapat diedit/dihapus), sedangkan item bawaan berlabel <span class="badge b-slate">Bawaan</span> terlindungi. Menghapus item kustom <strong>tidak pernah merusak</strong> riwayat log lama Anda.</li>
+    </ul>
+
+    <h3>C. Halaman Profil &amp; Program Diet</h3>
+    <div class="grid-2">
+      <div class="box">
+        <div class="box-title">Pengaturan Profil &amp; Target Kalori</div>
+        <p>Perbarui tinggi badan, usia, tingkat aktivitas, tujuan diet, dan target BB. Secara default target kalori mengikuti perhitungan otomatis berdasarkan BB terkini; centang <strong>Atur Manual</strong> jika ingin menentukan target kalori sendiri.</p>
+      </div>
+      <div class="box">
+        <div class="box-title">Riwayat BB, Password, &amp; Backup JSON</div>
+        <p>Lihat dan hapus riwayat penimbangan BB, ubah password akun di kartu <strong>Keamanan Akun</strong>, serta klik <strong>Ekspor Cadangan (JSON)</strong> di pojok kanan atas untuk mengunduh seluruh data pribadi Anda kapan saja.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== PAGE 7: ADMIN PANEL ==================== -->
+  <section class="page-break">
+    <p class="section-kicker">Bagian 6 • Administrator &amp; RBAC</p>
+    <h2>Panduan Panel Admin (Kelola User, Role, &amp; Log Sistem)</h2>
+
+    <p>
+      Bagian <strong>Panel Admin</strong> otomatis tampil di sidebar bagi pengguna yang role-nya memiliki izin administratif (termasuk role bawaan <code>admin</code>). Seluruh data antar pengguna terisolasi penuh berdasarkan <code>user_id</code>.
+    </p>
+
+    <h3>A. Kelola User &amp; Pantau Progres Diet</h3>
+    <p>Buka menu <strong>Kelola User</strong> untuk melihat ringkasan seluruh akun terdaftar beserta role, status Aktif/Nonaktif, BB terkini, kalori masuk/keluar hari ini, dan total catatan masing-masing user.</p>
+    <ul>
+      <li><strong>Tambah User:</strong> Klik tombol <strong>Tambah User</strong> untuk mendaftarkan akun baru dari sisi Admin (pilih nama lengkap, username, password, role, dan status aktif).</li>
+      <li><strong>Pantau Diet User (Tombol Pantau):</strong> Klik <strong>Pantau</strong> pada baris user mana pun untuk membuka jendela pemantauan yang menampilkan kalori masuk vs target hari ini, kalori keluar, berat badan &amp; BMI, status evaluasi diet (<code>7 / 14 / 30 Hari / Semua</code>), serta 15 catatan makanan, aktivitas, dan penimbangan terbaru user tersebut.</li>
+      <li><strong>Edit, Reset Password, Nonaktifkan, &amp; Hapus:</strong> Klik ikon <strong>pensil</strong> untuk mengubah data/role, menonaktifkan akun, atau mengisi kolom <em>Password</em> baru untuk mereset password user yang lupa. Sistem melindungi agar Admin tidak bisa menghapus/menonaktifkan dirinya sendiri maupun Admin aktif terakhir.</li>
+    </ul>
+
+    <h3>B. Kelola Role &amp; Hak Akses Granular</h3>
+    <p>Buka menu <strong>Kelola Role</strong>. Role bawaan <code>admin</code> dan <code>user</code> terlindungi agar tidak terhapus, sementara Admin dapat membuat role kustom baru (misalnya <code>coach</code> atau <code>nutrisionis</code>) dengan kombinasi 4 izin berikut:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 34%;">Hak Akses (Permission)</th>
+          <th>Menu &amp; Kemampuan yang Dibuka</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Kelola User</strong></td>
+          <td>Membuka menu <em>Kelola User</em> untuk menambah, mengedit, mereset password, menonaktifkan, dan menghapus akun.</td>
+        </tr>
+        <tr>
+          <td><strong>Kelola Role &amp; Hak Akses</strong></td>
+          <td>Membuka menu <em>Kelola Role</em> untuk membuat, mengubah izin, dan menghapus role kustom.</td>
+        </tr>
+        <tr>
+          <td><strong>Pantau Data Diet Semua User</strong></td>
+          <td>Mengaktifkan tombol <strong>Pantau</strong> di daftar user untuk melihat progres kalori, berat badan, dan evaluasi diet user lain (cocok untuk role <em>coach</em>).</td>
+        </tr>
+        <tr>
+          <td><strong>Lihat Log Sistem (Audit Log)</strong></td>
+          <td>Membuka menu <em>Log Sistem</em> untuk meninjau jejak aktivitas seluruh pengguna.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>C. Log Aktivitas Sistem (Audit Log)</h3>
+    <p>
+      Menu <strong>Log Sistem</strong> merekam secara otomatis setiap aktivitas penting lengkap dengan waktu, <code>username</code> + <code>user_id</code> pelaku, jenis aksi, dan rinciannya—meliputi <em>Login, Register, Logout, Ubah Password, Buat/Ubah Profil, Catat/Edit/Hapus Makanan, Aktivitas, &amp; Berat Badan, Katalog Kustom, Ekspor JSON,</em> serta seluruh perubahan <em>User &amp; Role</em>. Gunakan kotak pencarian, filter User, dan filter Aksi untuk menelusuri riwayat dengan cepat.
+    </p>
+  </section>
+
+  <!-- ==================== PAGE 8: FORMULAS & FAQ ==================== -->
+  <section class="page-break">
+    <p class="section-kicker">Bagian 7 &amp; 8 • Referensi</p>
+    <h2>Rumus Perhitungan &amp; FAQ / Troubleshooting</h2>
+
+    <h3>Referensi Rumus Domain KaloriKu</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 26%;">Perhitungan</th>
+          <th>Rumus &amp; Standar yang Digunakan</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>BMI (Kemenkes RI)</strong></td>
+          <td><code>BB (kg) / (TB (m))²</code> — <strong>&lt;18,5</strong> Berat Badan Kurang • <strong>18,5–25,0</strong> Normal • <strong>25,1–27,0</strong> Gemuk Ringan • <strong>&gt;27,0</strong> Obesitas.</td>
+        </tr>
+        <tr>
+          <td><strong>BMR (Mifflin-St Jeor)</strong></td>
+          <td>Laki-laki: <code>10×BB + 6,25×TB − 5×Usia + 5</code><br/>Perempuan: <code>10×BB + 6,25×TB − 5×Usia − 161</code></td>
+        </tr>
+        <tr>
+          <td><strong>Baseline TDEE</strong></td>
+          <td><code>BMR × Faktor Aktivitas</code> (Sedentari <code>1,2</code> • Ringan <code>1,375</code> • Sedang <code>1,55</code> • Aktif <code>1,725</code>), dihitung dinamis memakai BB efektif per tanggal.</td>
+        </tr>
+        <tr>
+          <td><strong>Kalori Makanan</strong></td>
+          <td><code>(gram / 100) × kkal_per_100g</code>. Untuk satuan porsi standar, <code>gram = jumlah × gram_per_porsi</code>.</td>
+        </tr>
+        <tr>
+          <td><strong>Kalori Aktivitas (MET)</strong></td>
+          <td><code>round((MET × 3,5 × BB / 200) × menit)</code>. Untuk input jarak (<code>m</code>/<code>km</code>), durasi dikonversi lewat kecepatan rata-rata aktivitas.</td>
+        </tr>
+        <tr>
+          <td><strong>Proyeksi BB Teoritis</strong></td>
+          <td><code>Akumulasi Keseimbangan Kalori / 7.700</code> (1 kg lemak ≈ 7.700 kkal), dengan batas konsistensi evaluasi <code>±0,5 kg</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>FAQ &amp; Pemecahan Masalah</h3>
+    <div class="box" style="margin-bottom: 10px;">
+      <div class="box-title">1. Mengapa grafik evaluasi masih bertuliskan "Mengumpulkan Data"?</div>
+      <p>Evaluasi korelasi Kalori vs BB membutuhkan minimal <strong>3 hari catatan berat badan</strong> dan <strong>3 hari catatan makanan</strong> di dalam rentang tanggal penimbangan agar tidak bias oleh fluktuasi air 1–2 hari.</p>
+    </div>
+    <div class="box" style="margin-bottom: 10px;">
+      <div class="box-title">2. Pencarian Open Food Facts tidak menemukan masakan rumahan Indonesia?</div>
+      <p>Open Food Facts paling kuat untuk <strong>produk kemasan bermerek</strong> (mi instan, susu UHT, biskuit, minuman botol). Untuk masakan Indonesia (nasi goreng, soto, pecel, ayam bakar, tempe, bakso), gunakan <strong>Tab Katalog Lokal</strong> yang sudah menyediakan 132 menu Indonesia siap pakai secara offline.</p>
+    </div>
+    <div class="box" style="margin-bottom: 10px;">
+      <div class="box-title">3. Bagaimana jika saya lupa password akun?</div>
+      <p>Hubungi Administrator sistem. Admin dapat masuk ke <strong>Kelola User → klik ikon Edit</strong> pada akun Anda, lalu mengisi kolom <em>Password</em> baru untuk meresetnya.</p>
+    </div>
+    <div class="box" style="margin-bottom: 10px;">
+      <div class="box-title">4. Di mana seluruh data disimpan dan bagaimana cara mencadangkannya?</div>
+      <p>Pengguna dapat mengunduh cadangan akun pribadinya kapan saja lewat <strong>Profil &amp; Diet → Ekspor Cadangan (JSON)</strong>. Di sisi server, seluruh database tersimpan aman dalam 1 file SQLite (<code>storage/monitoring_kalori.sqlite</code>) yang dilindungi oleh <code>.htaccess</code>.</p>
+    </div>
+
+    <div class="footer-note">
+      <span>KaloriKu — Manual Book Pengguna &amp; Admin (v1.0)</span>
+      <span>https://kalori.bimapratama.com/</span>
+    </div>
+  </section>
+
+</body>
+</html>
