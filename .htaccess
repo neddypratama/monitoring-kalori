@@ -1,0 +1,17 @@
+Options -Indexes
+
+# Izinkan file default index.php
+DirectoryIndex index.php index.html
+
+# Blokir akses publik langsung ke folder & file sensitif (.git, database SQLite, source backend/frontend, docs, tests, script)
+<IfModule mod_alias.c>
+    RedirectMatch 403 ^/\.git
+    RedirectMatch 403 ^/(storage|backend|tests|docs|frontend)(/|$)
+    RedirectMatch 403 \.(sqlite|sqlite-wal|sqlite-shm|sqlite-journal|sh|md|lock)$
+</IfModule>
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "^(\.htaccess|\.gitignore|deploy\.sh)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
