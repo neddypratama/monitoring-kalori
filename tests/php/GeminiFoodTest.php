@@ -137,7 +137,81 @@ Assert::test('auto-falls back to default model if selected model returns 404 / n
     Assert::equals(75, (int) $res['total_calories']);
 });
 
-Assert::test('Router saves profile program_duration_days and protects admin/settings with RBAC', function (): void {
+Assert::test('auto-falls back across Gemini models and across providers (Gemini 503 -> Groq Vision)', function (): void {
+    $calls = [];
+    $mockPost = static function (string $url, array $payload, array $headers = []) use (&$calls): array {
+        $calls[] = $url;
+        if (str_contains($url, 'generativelanguage.googleapis.com')) {
+            return [
+                'ok' => true,
+                'status' => 503,
+                'body' => json_encode(['error' => ['message' => 'This model is currently experiencing high demand.']]),
+                'error' => '',
+            ];
+        }
+        Assert::true(str_contains($url, 'api.groq.com/openai/v1/chat/completions'), 'Expected Groq endpoint');
+        Assert::true(in_array('Authorization: Bearer gsk_test_groq_key', $headers, true), 'Missing Bearer header');
+
+        $aiJson = json_encode([
+            'meal_summary' => 'Ayam Panggang & Kentang Wedges',
+            'confidence' => 'tinggi',
+            'notes' => '1 porsi ayam panggang dengan kentang dan salad',
+            'items' => [
+                [
+                    'name' => 'Ayam Panggang',
+                    'unit' => 'potong',
+                    'quantity' => 1,
+                    'estimated_grams' => 150,
+                    'calories' => 280,
+                    'protein' => 32.0,
+                    'carbs' => 2.0,
+                    'fat' => 15.0,
+                ],
+                [
+                    'name' => 'Kentang Wedges',
+                    'unit' => 'porsi',
+                    'quantity' => 1,
+                    'estimated_grams' => 120,
+                    'calories' => 180,
+                    'protein' => 3.5,
+                    'carbs' => 30.0,
+                    'fat' => 5.5,
+                ],
+            ],
+        ]);
+        return [
+            'ok' => true,
+            'status' => 200,
+            'body' => json_encode([
+                'choices' => [[
+                    'message' => ['content' => $aiJson],
+                ]],
+            ]),
+            'error' => '',
+        ];
+    };
+
+    $res = GeminiFoodService::analyzeWithProviders(
+        [
+            'gemini' => ['api_key' => 'AIzaFakeKey', 'model' => 'gemini-3.8-flash'],
+            'groq' => ['api_key' => 'gsk_test_groq_key', 'model' => 'meta-llama/llama-4-scout-17b-16e-instruct'],
+        ],
+        'gemini',
+        true,
+        base64_encode('fake-jpeg-bytes'),
+        'image/jpeg',
+        '',
+        $mockPost
+    );
+
+    // Tried all 3 Gemini models (503) then succeeded on Groq Scout!
+    Assert::equals(4, count($calls));
+    Assert::equals('groq', $res['provider_used']);
+    Assert::equals('meta-llama/llama-4-scout-17b-16e-instruct', $res['model_used']);
+    Assert::equals(460, (int) $res['total_calories']);
+});
+
+Assert::test('Router saves multi-provider AI settings and protects admin/settings with RBAC', function (): void {
     $pdo = Database::connect(':memory:');
     $adminLogin = Router::handle($pdo, 'POST', 'auth/login', [], ['username' => 'admin', 'password' => 'admin123']);
     $adminToken = (string) $adminLogin['session_token'];
@@ -164,15 +238,23 @@ Assert::test('Router saves profile program_duration_days and protects admin/sett
     $userToken = (string) $reg['session_token'];
     Assert::equals(403, Router::handle($pdo, 'GET', 'admin/settings', [], [], $userToken)['status']);
 
-    // Admin saves Gemini API key & reads masked status
+    // Admin saves Gemini + Groq API keys & primary provider = groq
     $saveSet = Router::handle($pdo, 'POST', 'admin/settings', [], [
+        'primary_provider' => 'groq',
+        'auto_fallback' => true,
         'gemini_api_key' => 'AIzaSyDemoSecretKey1234567890',
-        'gemini_model' => 'gemini-2.5-flash',
+        'gemini_model' => 'gemini-3.8-flash',
+        'groq_api_key' => 'gsk_DemoGroqSecretKey987654321',
+        'groq_model' => 'meta-llama/llama-4-scout-17b-16e-instruct',
     ], $adminToken);
     Assert::equals(200, $saveSet['status']);
-    Assert::equals(true, $saveSet['payload']['data']['has_gemini_key']);
-    Assert::true(str_contains((string) $saveSet['payload']['data']['gemini_key_masked'], 'AIza'));
-    Assert::true(!str_contains((string) $saveSet['payload']['data']['gemini_key_masked'], 'DemoSecretKey'));
+    $data = $saveSet['payload']['data'];
+    Assert::equals('groq', $data['primary_provider']);
+    Assert::equals(true, $data['auto_fallback']);
+    Assert::equals(true, $data['has_gemini_key']);
+    Assert::equals(true, $data['providers']['groq']['has_key']);
+    Assert::true(str_contains((string) $data['providers']['groq']['key_masked'], 'gsk_'));
+    Assert::true(!str_contains((string) $data['providers']['groq']['key_masked'], 'DemoGroqSecretKey'));
 });
 
 exit(Assert::summary('GeminiFoodTest'));

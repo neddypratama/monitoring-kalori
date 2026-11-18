@@ -47,6 +47,8 @@ export interface PhotoAnalysisItem {
   fat: number;
 }
 
+export type AiProvider = 'gemini' | 'groq' | 'openrouter' | 'openai';
+
 export interface PhotoAnalysisResult {
   meal_summary: string;
   confidence: 'tinggi' | 'sedang' | 'rendah';
@@ -56,6 +58,15 @@ export interface PhotoAnalysisResult {
   total_carbs: number;
   total_fat: number;
   items: PhotoAnalysisItem[];
+  provider_used?: string;
+  model_used?: string;
+}
+
+export interface AiProviderConfig {
+  has_key: boolean;
+  key_masked: string;
+  model: string;
+  allowed_models: string[];
 }
 
 export interface AdminAiSettings {
@@ -63,6 +74,9 @@ export interface AdminAiSettings {
   gemini_key_masked: string;
   gemini_model: string;
   allowed_models: string[];
+  primary_provider: AiProvider;
+  auto_fallback: boolean;
+  providers: Record<AiProvider, AiProviderConfig>;
 }
 
 export interface RolePermissions {

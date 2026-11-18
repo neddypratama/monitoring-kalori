@@ -717,6 +717,12 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-violet-950">{photoResult.meal_summary}</p>
                         {photoResult.notes && <p className="text-[11px] text-slate-600 mt-0.5">{photoResult.notes}</p>}
+                        {photoResult.provider_used && (
+                          <p className="text-[10px] text-violet-600 font-semibold mt-1">
+                            Dianalisis oleh {photoResult.provider_used.toUpperCase()}
+                            {photoResult.model_used ? ` • ${photoResult.model_used.split('/').pop()}` : ''}
+                          </p>
+                        )}
                       </div>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${

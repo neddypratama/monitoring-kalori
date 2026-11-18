@@ -137,6 +137,20 @@ export const api = {
     request<AuditLogItem[]>('GET', 'admin/audit-logs', { params }),
 
   getAdminSettings: () => request<AdminAiSettings>('GET', 'admin/settings'),
-  saveAdminSettings: (body: { gemini_api_key?: string; clear_gemini_key?: boolean; gemini_model?: string }) =>
-    request<AdminAiSettings>('POST', 'admin/settings', { body }),
+  saveAdminSettings: (body: {
+    primary_provider?: string;
+    auto_fallback?: boolean;
+    gemini_api_key?: string;
+    clear_gemini_key?: boolean;
+    gemini_model?: string;
+    groq_api_key?: string;
+    clear_groq_key?: boolean;
+    groq_model?: string;
+    openrouter_api_key?: string;
+    clear_openrouter_key?: boolean;
+    openrouter_model?: string;
+    openai_api_key?: string;
+    clear_openai_key?: boolean;
+    openai_model?: string;
+  }) => request<AdminAiSettings>('POST', 'admin/settings', { body }),
 };

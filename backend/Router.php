@@ -393,15 +393,14 @@ final class Router
         if ($method !== 'POST') {
             return self::fail(405, 'Metode HTTP tidak didukung.');
         }
-        $apiKey = GeminiFoodService::getApiKey($pdo);
-        $model = GeminiFoodService::getModel($pdo);
         $imageBase64 = (string) ($body['image_base64'] ?? '');
         $mimeType = (string) ($body['mime_type'] ?? 'image/jpeg');
         $hint = (string) ($body['hint'] ?? '');
 
         try {
-            $result = GeminiFoodService::analyzeFoodPhoto($apiKey, $model, $imageBase64, $mimeType, $hint);
+            $result = GeminiFoodService::analyzeFoodPhotoFromDb($pdo, $imageBase64, $mimeType, $hint);
             $userId = (int) $authUser['id'];
+            $prov = (string) ($result['provider_used'] ?? 'ai');
             AuditService::record(
                 $pdo,
                 $userId,
@@ -410,7 +409,7 @@ final class Router
                 'food',
                 null,
                 $userId,
-                "Analisis foto AI: {$result['meal_summary']} ({$result['total_calories']} kkal, " . count($result['items']) . ' item)'
+                "Analisis foto AI ({$prov}): {$result['meal_summary']} ({$result['total_calories']} kkal, " . count($result['items']) . ' item)'
             );
             return self::ok($result);
         } catch (RuntimeException $e) {
@@ -425,13 +424,7 @@ final class Router
         }
 
         if ($method === 'GET') {
-            $key = GeminiFoodService::getApiKey($pdo);
-            return self::ok([
-                'has_gemini_key' => $key !== '',
-                'gemini_key_masked' => GeminiFoodService::maskKey($key),
-                'gemini_model' => GeminiFoodService::getModel($pdo),
-                'allowed_models' => GeminiFoodService::ALLOWED_MODELS,
-            ]);
+            return self::ok(GeminiFoodService::getPublicSettings($pdo));
         }
 
         if ($method !== 'POST' && $method !== 'PUT') {
@@ -449,30 +442,50 @@ final class Router
                 updated_at = datetime('now', 'localtime')"
         );
 
-        if (array_key_exists('gemini_api_key', $body)) {
-            $newKey = trim((string) $body['gemini_api_key']);
-            if ($newKey !== '' || !empty($body['clear_gemini_key'])) {
-                $upsert->execute(['gemini_api_key', !empty($body['clear_gemini_key']) ? '' : $newKey]);
+        if (array_key_exists('primary_provider', $body)) {
+            $prov = strtolower(trim((string) $body['primary_provider']));
+            if (!in_array($prov, GeminiFoodService::PROVIDERS, true)) {
+                throw new InvalidArgumentException('Provider AI utama tidak valid.');
+            }
+            $upsert->execute(['ai_primary_provider', $prov]);
+        }
+
+        if (array_key_exists('auto_fallback', $body)) {
+            $upsert->execute(['ai_auto_fallback', !empty($body['auto_fallback']) ? '1' : '0']);
+        }
+
+        foreach (GeminiFoodService::PROVIDERS as $p) {
+            $keyField = "{$p}_api_key";
+            $clearField = "clear_{$p}_key";
+            $modelField = "{$p}_model";
+
+            if (!empty($body[$clearField])) {
+                $upsert->execute([$keyField, '']);
+            } elseif (array_key_exists($keyField, $body)) {
+                $newKey = trim((string) $body[$keyField]);
+                if ($newKey !== '') {
+                    $upsert->execute([$keyField, $newKey]);
+                }
+            }
+
+            if (array_key_exists($modelField, $body)) {
+                $model = trim((string) $body[$modelField]);
+                if ($model !== '') {
+                    $allowed = GeminiFoodService::PROVIDER_MODELS[$p] ?? [];
+                    $valid = $p === 'openrouter'
+                        ? GeminiFoodService::isValidModelSlug($model)
+                        : in_array($model, $allowed, true);
+                    if (!$valid) {
+                        throw new InvalidArgumentException("Model {$p} tidak valid.");
+                    }
+                    $upsert->execute([$modelField, $model]);
+                }
             }
         }
 
-        if (array_key_exists('gemini_model', $body)) {
-            $model = trim((string) $body['gemini_model']);
-            if (!in_array($model, GeminiFoodService::ALLOWED_MODELS, true)) {
-                throw new InvalidArgumentException('Model Gemini tidak valid.');
-            }
-            $upsert->execute(['gemini_model', $model]);
-        }
+        AuditService::record($pdo, $actorId, $actorName, 'update_settings', 'settings', null, null, 'Memperbarui pengaturan Multi-Provider Vision AI');
 
-        AuditService::record($pdo, $actorId, $actorName, 'update_settings', 'settings', null, null, 'Memperbarui pengaturan Gemini Vision AI');
-
-        $savedKey = GeminiFoodService::getApiKey($pdo);
-        return self::ok([
-            'has_gemini_key' => $savedKey !== '',
-            'gemini_key_masked' => GeminiFoodService::maskKey($savedKey),
-            'gemini_model' => GeminiFoodService::getModel($pdo),
-            'allowed_models' => GeminiFoodService::ALLOWED_MODELS,
-        ]);
+        return self::ok(GeminiFoodService::getPublicSettings($pdo));
     }
 
     private static function handleActivities(PDO $pdo, string $method, array $authUser, array $query, array $body): array
