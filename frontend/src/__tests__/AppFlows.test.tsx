@@ -336,13 +336,16 @@ describe('KaloriKu UI flows', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /Foto AI/i }));
+    expect(screen.getByRole('button', { name: /Analisis Foto Dulu/i })).toBeDisabled();
     const fileInput = screen.getByLabelText(/Upload Foto Makanan/i);
     const fakeFile = new File(['fake-jpeg-bytes'], 'makan-siang.jpg', { type: 'image/jpeg' });
     await user.upload(fileInput, fakeFile);
 
+    expect(await screen.findByText(/Foto berhasil dimuat/i)).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: /Analisis Foto AI/i }));
 
     expect(await screen.findByText('Nasi Putih dengan Ayam Goreng')).toBeInTheDocument();
+    expect(screen.getByText(/Analisis selesai/i)).toBeInTheDocument();
     expect(screen.getByText('520')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Simpan \(2\) dari Foto/i }));

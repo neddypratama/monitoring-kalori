@@ -31,6 +31,7 @@ import {
   previewFoodNutrition,
 } from '../utils/calculators';
 import { compressFoodImage } from '../utils/imageCompress';
+import { FormStatusBanner } from './FormStatusBanner';
 
 interface EditablePhotoItem {
   selected: boolean;
@@ -74,12 +75,14 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
   const [quantity, setQuantity] = useState('1');
   const [unitMode, setUnitMode] = useState<'default' | 'gram'>('default');
 
-  // Photo AI (Gemini Vision) state
+  // Photo AI (Multi-Provider Vision) state
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoMimeType, setPhotoMimeType] = useState<string>('image/jpeg');
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(null);
+  const [photoCompressing, setPhotoCompressing] = useState(false);
   const [photoHint, setPhotoHint] = useState('');
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoResult, setPhotoResult] = useState<PhotoAnalysisResult | null>(null);
@@ -105,6 +108,8 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
     setPhotoBase64(null);
     setPhotoMimeType('image/jpeg');
     setPhotoPreviewUrl(null);
+    setPhotoSizeKb(null);
+    setPhotoCompressing(false);
     setPhotoHint('');
     setPhotoLoading(false);
     setPhotoResult(null);
@@ -187,13 +192,18 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
     setError(null);
     setPhotoResult(null);
     setPhotoItems([]);
+    setPhotoCompressing(true);
     try {
       const compressed = await compressFoodImage(file, 1024, 0.82);
+      const approxKb = Math.max(1, Math.round((compressed.base64.length * 3) / 4 / 1024));
       setPhotoBase64(compressed.base64);
       setPhotoMimeType(compressed.mimeType);
       setPhotoPreviewUrl(compressed.previewUrl);
+      setPhotoSizeKb(approxKb);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal memproses gambar.');
+    } finally {
+      setPhotoCompressing(false);
     }
   };
 
@@ -237,6 +247,8 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
   const handleClearPhoto = () => {
     setPhotoBase64(null);
     setPhotoPreviewUrl(null);
+    setPhotoSizeKb(null);
+    setPhotoCompressing(false);
     setPhotoResult(null);
     setPhotoItems([]);
     setPhotoHint('');
@@ -539,6 +551,13 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
                   </div>
                 </div>
 
+                {!selectedFood && (
+                  <FormStatusBanner
+                    variant="info"
+                    message="Pilih salah satu makanan dari daftar di atas untuk mengatur jumlah porsi & melihat estimasi kalori."
+                  />
+                )}
+
                 {selectedFood && (
                   <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-3">
                     <div className="flex items-center justify-between">
@@ -619,6 +638,39 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
               </>
             ) : mode === 'photo' ? (
               <div className="space-y-3.5">
+                {/* 3-Step Visual Progress Tracker */}
+                {(() => {
+                  const step = photoResult ? 3 : photoBase64 ? 2 : 1;
+                  const steps = [
+                    { n: 1, label: 'Pilih Foto' },
+                    { n: 2, label: 'Analisis AI' },
+                    { n: 3, label: 'Cek & Simpan' },
+                  ];
+                  return (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {steps.map((s) => {
+                        const done = step > s.n;
+                        const active = step === s.n;
+                        return (
+                          <div
+                            key={s.n}
+                            className={`px-2 py-1.5 rounded-xl text-[11px] font-bold text-center border transition ${
+                              done
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                : active
+                                  ? 'bg-violet-50 border-violet-300 text-violet-800'
+                                  : 'bg-slate-50 border-slate-200 text-slate-400'
+                            }`}
+                          >
+                            {done ? '✓ ' : `${s.n}. `}
+                            {s.label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
                 {/* Hidden file inputs */}
                 <input
                   ref={cameraInputRef}
@@ -638,7 +690,12 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
                   className="hidden"
                 />
 
-                {!photoPreviewUrl ? (
+                {photoCompressing ? (
+                  <FormStatusBanner
+                    variant="loading"
+                    message="Memproses & mengompresi foto makanan agar unggahan lebih cepat..."
+                  />
+                ) : !photoPreviewUrl ? (
                   <div className="rounded-2xl border-2 border-dashed border-violet-200 bg-violet-50/40 p-5 text-center space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center mx-auto">
                       <Camera className="w-6 h-6" />
@@ -674,10 +731,14 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
                         alt="Pratinjau foto makanan"
                         className="w-full max-h-52 object-cover"
                       />
+                      <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-emerald-600/90 text-white text-[11px] font-bold tabular-nums">
+                        ✓ Foto Siap{photoSizeKb ? ` • ${photoSizeKb} KB` : ''}
+                      </span>
                       <button
                         type="button"
+                        disabled={photoLoading || submitting}
                         onClick={handleClearPhoto}
-                        className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer"
+                        className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-900 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Ganti Foto
                       </button>
@@ -686,15 +747,16 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
                     <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
+                        disabled={photoLoading || submitting}
                         value={photoHint}
                         onChange={(e) => setPhotoHint(e.target.value)}
                         placeholder="Keterangan opsional (mis: nasi setengah porsi, tanpa sambal)"
-                        className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:bg-slate-50"
                       />
                       <button
                         type="button"
                         onClick={handleAnalyzePhoto}
-                        disabled={photoLoading}
+                        disabled={photoLoading || submitting}
                         className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs cursor-pointer shrink-0"
                       >
                         {photoLoading ? (
@@ -703,11 +765,32 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
                           </>
                         ) : (
                           <>
-                            <Sparkles className="w-4 h-4" /> Analisis Foto AI
+                            <Sparkles className="w-4 h-4" /> {photoResult ? 'Analisis Ulang' : 'Analisis Foto AI'}
                           </>
                         )}
                       </button>
                     </div>
+
+                    {photoLoading ? (
+                      <FormStatusBanner
+                        variant="loading"
+                        message="Sedang mengunggah & menganalisis foto makanan dengan AI... Mohon tunggu beberapa detik."
+                      />
+                    ) : !photoResult && !error ? (
+                      <FormStatusBanner
+                        variant="info"
+                        message='Foto berhasil dimuat! Langkah selanjutnya: klik tombol "Analisis Foto AI" di atas untuk menghitung kalorinya.'
+                      />
+                    ) : photoResult && !error ? (
+                      <FormStatusBanner
+                        variant="success"
+                        message={
+                          photoItems.length > 0
+                            ? 'Analisis selesai! Cek atau sesuaikan item di bawah, lalu klik tombol "Simpan dari Foto".'
+                            : 'Analisis selesai, namun tidak ada item makanan terdeteksi. Coba foto yang lebih jelas atau pakai tab Manual.'
+                        }
+                      />
+                    ) : null}
                   </div>
                 )}
 
@@ -927,30 +1010,35 @@ export const FoodLogModal: React.FC<FoodLogModalProps> = ({
             />
           </div>
 
-            {error && <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">{error}</div>}
+            {submitting && <FormStatusBanner variant="loading" message="Menyimpan catatan makanan ke server..." />}
+            {error && <FormStatusBanner variant="error" message={error} />}
           </div>
 
           <div className="shrink-0 px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-white flex justify-end gap-2 pb-safe">
             <button
               type="button"
+              disabled={submitting}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              disabled={submitting || (mode === 'photo' && selectedPhotoTotals.count === 0)}
-              className={`px-5 py-2.5 rounded-xl disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer ${
+              disabled={submitting || photoLoading || photoCompressing || (mode === 'photo' && selectedPhotoTotals.count === 0)}
+              className={`inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer ${
                 mode === 'photo' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-emerald-600 hover:bg-emerald-700'
               }`}
             >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting
                 ? 'Menyimpan...'
                 : editingLog
                   ? 'Simpan Perubahan'
                   : mode === 'photo'
-                    ? `Simpan ${selectedPhotoTotals.count > 0 ? `(${selectedPhotoTotals.count}) ` : ''}dari Foto`
+                    ? !photoResult
+                      ? 'Analisis Foto Dulu'
+                      : `Simpan ${selectedPhotoTotals.count > 0 ? `(${selectedPhotoTotals.count}) ` : ''}dari Foto`
                     : 'Simpan Makanan'}
             </button>
           </div>
@@ -1238,6 +1326,13 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({
                 </div>
               </div>
 
+              {!selectedActivity && (
+                <FormStatusBanner
+                  variant="info"
+                  message="Pilih salah satu aktivitas di atas untuk mengisi jarak/durasi dan menghitung kalori keluar otomatis."
+                />
+              )}
+
               {selectedActivity && (
                 <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1384,22 +1479,25 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({
             />
           </div>
 
-            {error && <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">{error}</div>}
+            {submitting && <FormStatusBanner variant="loading" message="Menyimpan catatan aktivitas ke server..." />}
+            {error && <FormStatusBanner variant="error" message={error} />}
           </div>
 
           <div className="shrink-0 px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-white flex justify-end gap-2 pb-safe">
             <button
               type="button"
+              disabled={submitting}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer"
             >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Menyimpan...' : editingLog ? 'Simpan Perubahan' : 'Simpan Aktivitas'}
             </button>
           </div>
@@ -1529,22 +1627,25 @@ export const WeightLogModal: React.FC<WeightLogModalProps> = ({
               />
             </div>
 
-            {error && <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">{error}</div>}
+            {submitting && <FormStatusBanner variant="loading" message="Menyimpan catatan berat badan ke server..." />}
+            {error && <FormStatusBanner variant="error" message={error} />}
           </div>
 
           <div className="shrink-0 px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-white flex justify-end gap-2 pb-safe">
             <button
               type="button"
+              disabled={submitting}
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer"
             >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Menyimpan...' : 'Simpan Berat Badan'}
             </button>
           </div>

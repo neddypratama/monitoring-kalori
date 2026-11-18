@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Flame, Lock, LogIn, UserPlus, User } from 'lucide-react';
+import { Flame, Loader2, Lock, LogIn, UserPlus, User } from 'lucide-react';
 import type { AuthUser } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from './FormStatusBanner';
 import { PasswordInput } from './PasswordInput';
 
 interface AuthViewProps {
@@ -160,16 +161,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
             </div>
           )}
 
-          {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">{error}</div>
+          {submitting && (
+            <FormStatusBanner
+              variant="loading"
+              message={mode === 'login' ? 'Memverifikasi akun & memuat data Anda...' : 'Mendaftarkan akun baru...'}
+            />
           )}
+          {error && <FormStatusBanner variant="error" message={error} />}
 
           <button
             type="submit"
             disabled={submitting}
             className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
           >
-            {mode === 'login' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : mode === 'login' ? (
+              <LogIn className="w-4 h-4" />
+            ) : (
+              <UserPlus className="w-4 h-4" />
+            )}
             {submitting ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar & Mulai'}
           </button>
         </form>

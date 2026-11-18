@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, ArrowRight, CalendarClock, Flame, Sparkles } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, CalendarClock, Flame, Loader2, Sparkles } from 'lucide-react';
 import type { ActivityLevel, Gender, GoalType, ProfileResponse } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from './FormStatusBanner';
 import {
   ACTIVITY_LEVEL_LABELS,
   GOAL_LABELS,
@@ -323,17 +324,19 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
               </div>
             </div>
 
-            {error && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">{error}</div>
+            {submitting && (
+              <FormStatusBanner variant="loading" message="Menyimpan profil & menyiapkan rencana program diet Anda..." />
             )}
+            {error && <FormStatusBanner variant="error" message={error} />}
 
             <button
               type="submit"
               disabled={submitting}
               className="w-full py-3.5 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
             >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {submitting ? 'Menyimpan...' : 'Mulai Program Diet'}
-              <ArrowRight className="w-4 h-4" />
+              {!submitting && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
 

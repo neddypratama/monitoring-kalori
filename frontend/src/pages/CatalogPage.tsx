@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Activity, Edit3, Plus, Search, Star, Trash2, Utensils, X } from 'lucide-react';
+import { Activity, Edit3, Loader2, Plus, Search, Star, Trash2, Utensils, X } from 'lucide-react';
 import type { ActivityItem, FoodItem } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from '../components/FormStatusBanner';
 import { formatNum, parseDecimalInput } from '../utils/calculators';
 
 interface CatalogPageProps {
@@ -47,6 +48,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
   const [aSpeed, setASpeed] = useState('5');
 
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const filteredFoods = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -78,6 +80,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     setFPro('0');
     setFCarb('0');
     setFFat('0');
+    setFormError(null);
     setShowFoodForm(true);
   };
 
@@ -91,6 +94,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     setFPro(String(f.protein_per_100g));
     setFCarb(String(f.carbs_per_100g));
     setFFat(String(f.fat_per_100g));
+    setFormError(null);
     setShowFoodForm(true);
   };
 
@@ -101,6 +105,7 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     setAMet('5');
     setADist(false);
     setASpeed('5');
+    setFormError(null);
     setShowActForm(true);
   };
 
@@ -111,15 +116,19 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
     setAMet(String(a.met));
     setADist(a.supports_distance);
     setASpeed(a.default_speed_kmh ? String(a.default_speed_kmh) : '5');
+    setFormError(null);
     setShowActForm(true);
   };
 
   const handleSaveFood = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     const grams = parseDecimalInput(fGrams);
     const cal = parseDecimalInput(fCal);
     if (!fName.trim() || !grams || grams <= 0 || cal === null || cal < 0) {
-      onNotify('error', 'Lengkapi nama, gram per porsi (> 0), dan kalori per 100g.');
+      const msg = 'Lengkapi nama, gram per porsi (> 0), dan kalori per 100g.';
+      setFormError(msg);
+      onNotify('error', msg);
       return;
     }
     setSaving(true);
@@ -144,7 +153,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       setShowFoodForm(false);
       await onRefreshCatalog();
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menyimpan makanan.');
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan makanan.';
+      setFormError(msg);
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
@@ -152,14 +163,19 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
 
   const handleSaveActivity = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     const met = parseDecimalInput(aMet);
     const speed = aDist ? parseDecimalInput(aSpeed) : null;
     if (!aName.trim() || !met || met <= 0) {
-      onNotify('error', 'Nama aktivitas dan nilai MET (> 0) wajib diisi.');
+      const msg = 'Nama aktivitas dan nilai MET (> 0) wajib diisi.';
+      setFormError(msg);
+      onNotify('error', msg);
       return;
     }
     if (aDist && (!speed || speed <= 0)) {
-      onNotify('error', 'Kecepatan rata-rata (km/jam) wajib diisi untuk aktivitas berbasis jarak.');
+      const msg = 'Kecepatan rata-rata (km/jam) wajib diisi untuk aktivitas berbasis jarak.';
+      setFormError(msg);
+      onNotify('error', msg);
       return;
     }
     setSaving(true);
@@ -181,7 +197,9 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
       setShowActForm(false);
       await onRefreshCatalog();
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menyimpan aktivitas.');
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan aktivitas.';
+      setFormError(msg);
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
@@ -551,15 +569,18 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   />
                 </div>
               </div>
+              {saving && <FormStatusBanner variant="loading" message="Menyimpan makanan kustom ke katalog..." />}
+              {!saving && formError && <FormStatusBanner variant="error" message={formError} />}
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowFoodForm(false)} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">
+                <button type="button" disabled={saving} onClick={() => setShowFoodForm(false)} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer">
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
                 >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {saving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
@@ -639,15 +660,18 @@ export const CatalogPage: React.FC<CatalogPageProps> = ({
                   />
                 </div>
               )}
+              {saving && <FormStatusBanner variant="loading" message="Menyimpan aktivitas kustom ke katalog..." />}
+              {!saving && formError && <FormStatusBanner variant="error" message={formError} />}
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowActForm(false)} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">
+                <button type="button" disabled={saving} onClick={() => setShowActForm(false)} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer">
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
                 >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {saving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>

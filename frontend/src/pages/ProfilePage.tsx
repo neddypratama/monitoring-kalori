@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, CalendarClock, Download, KeyRound, Plus, Save, Scale, Trash2 } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarClock, Download, KeyRound, Loader2, Plus, Save, Scale, Trash2 } from 'lucide-react';
 import type { ActivityLevel, CurrentMetrics, Gender, GoalType, UserProfile, WeightLog } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from '../components/FormStatusBanner';
 import { PasswordInput } from '../components/PasswordInput';
 import {
   ACTIVITY_LEVEL_LABELS,
@@ -56,14 +57,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     String(profile.daily_calorie_target ?? metrics.recommended_calorie_target)
   );
   const [saving, setSaving] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [curPass, setCurPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [changingPass, setChangingPass] = useState(false);
+  const [passStatus, setPassStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPassStatus(null);
     if (!curPass || newPass.length < 6) {
-      onNotify('error', 'Isi password saat ini dan password baru (minimal 6 karakter).');
+      const msg = 'Isi password saat ini dan password baru (minimal 6 karakter).';
+      setPassStatus({ type: 'error', text: msg });
+      onNotify('error', msg);
       return;
     }
     setChangingPass(true);
@@ -71,9 +78,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       await api.changePassword({ current_password: curPass, new_password: newPass });
       setCurPass('');
       setNewPass('');
-      onNotify('success', 'Password akun berhasil diubah.');
+      const msg = 'Password akun berhasil diubah.';
+      setPassStatus({ type: 'success', text: msg });
+      onNotify('success', msg);
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal mengubah password.');
+      const msg = err instanceof Error ? err.message : 'Gagal mengubah password.';
+      setPassStatus({ type: 'error', text: msg });
+      onNotify('error', msg);
     } finally {
       setChangingPass(false);
     }
@@ -135,15 +146,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const dur = durRaw && durRaw > 0 ? Math.round(durRaw) : null;
 
     if (!h || !a || !iw) {
-      onNotify('error', 'Pastikan tinggi badan, usia, dan berat badan awal valid.');
+      const msg = 'Pastikan tinggi badan, usia, dan berat badan awal valid.';
+      setProfileStatus({ type: 'error', text: msg });
+      onNotify('error', msg);
       return;
     }
     if (dur !== null && (dur < 7 || dur > 730)) {
-      onNotify('error', 'Durasi program harus antara 7 sampai 730 hari (atau kosongkan untuk fleksibel).');
+      const msg = 'Durasi program harus antara 7 sampai 730 hari (atau kosongkan untuk fleksibel).';
+      setProfileStatus({ type: 'error', text: msg });
+      onNotify('error', msg);
       return;
     }
 
     setSaving(true);
+    setProfileStatus(null);
     try {
       await api.saveProfile({
         name: name.trim(),
@@ -160,9 +176,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         program_start_date: tw && dur ? programStartDate || getLocalDateIso() : null,
       });
       await onProfileUpdated();
-      onNotify('success', 'Profil & target program diet diperbarui.');
+      const msg = 'Profil & target program diet berhasil disimpan.';
+      setProfileStatus({ type: 'success', text: msg });
+      onNotify('success', msg);
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal memperbarui profil.');
+      const msg = err instanceof Error ? err.message : 'Gagal memperbarui profil.';
+      setProfileStatus({ type: 'error', text: msg });
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
@@ -182,6 +202,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   };
 
   const handleExportJson = async () => {
+    setExporting(true);
     try {
       const data = await api.exportAllData();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -196,6 +217,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       onNotify('success', 'File cadangan JSON berhasil diunduh.');
     } catch (err) {
       onNotify('error', err instanceof Error ? err.message : 'Gagal mengekspor data.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -210,10 +233,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
         <button
           type="button"
+          disabled={exporting}
           onClick={handleExportJson}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold cursor-pointer self-start"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-bold cursor-pointer self-start"
         >
-          <Download className="w-4 h-4" /> Ekspor Cadangan (JSON)
+          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {exporting ? 'Menyiapkan File...' : 'Ekspor Cadangan (JSON)'}
         </button>
       </div>
 
@@ -455,13 +480,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             )}
           </div>
 
+          {saving && <FormStatusBanner variant="loading" message="Menyimpan profil & menghitung ulang rencana target..." />}
+          {!saving && profileStatus && <FormStatusBanner variant={profileStatus.type} message={profileStatus.text} />}
+
           <div className="flex justify-end pt-1">
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer"
             >
-              <Save className="w-4 h-4" />
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Menyimpan...' : 'Simpan Pengaturan'}
             </button>
           </div>
@@ -541,12 +569,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="submit"
               disabled={changingPass}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
             >
+              {changingPass && <Loader2 className="w-4 h-4 animate-spin" />}
               {changingPass ? 'Menyimpan...' : 'Ubah Password'}
             </button>
           </div>
         </div>
+        {changingPass && <FormStatusBanner variant="loading" message="Memproses perubahan password akun..." />}
+        {!changingPass && passStatus && <FormStatusBanner variant={passStatus.type} message={passStatus.text} />}
       </form>
     </div>
   );

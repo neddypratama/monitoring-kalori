@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, ExternalLink, RefreshCw, Save, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Loader2, RefreshCw, Save, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import type { AdminAiSettings, AiProvider } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from '../components/FormStatusBanner';
 import { PasswordInput } from '../components/PasswordInput';
 
 interface AdminSettingsPageProps {
@@ -107,6 +108,7 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const syncFromResponse = useCallback((res: AdminAiSettings) => {
     setSettings(res);
@@ -144,6 +146,7 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setStatusMsg(null);
     try {
       const res = await api.saveAdminSettings({
         primary_provider: primaryProvider,
@@ -159,9 +162,13 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
       });
       syncFromResponse(res);
       setKeys({ gemini: '', groq: '', openrouter: '', openai: '' });
-      onNotify('success', 'Pengaturan Multi-Provider Vision AI berhasil disimpan.');
+      const msg = 'Pengaturan Multi-Provider Vision AI berhasil disimpan dan langsung aktif.';
+      setStatusMsg({ type: 'success', text: msg });
+      onNotify('success', msg);
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menyimpan pengaturan AI.');
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan pengaturan AI.';
+      setStatusMsg({ type: 'error', text: msg });
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
@@ -171,18 +178,25 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
     const label = PROVIDER_INFO[prov].name;
     if (!window.confirm(`Hapus API Key ${label} yang tersimpan?`)) return;
     setSaving(true);
+    setStatusMsg(null);
     try {
       const clearPayload: Record<string, unknown> = { [`clear_${prov}_key`]: true };
       const res = await api.saveAdminSettings(clearPayload);
       syncFromResponse(res);
       setKeys((prev) => ({ ...prev, [prov]: '' }));
-      onNotify('success', `API Key ${label} berhasil dihapus.`);
+      const msg = `API Key ${label} berhasil dihapus.`;
+      setStatusMsg({ type: 'success', text: msg });
+      onNotify('success', msg);
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menghapus API Key.');
+      const msg = err instanceof Error ? err.message : 'Gagal menghapus API Key.';
+      setStatusMsg({ type: 'error', text: msg });
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
   };
+
+  const hasUnsavedKeyInput = PROVIDER_ORDER.some((p) => keys[p].trim() !== '');
 
   const activeProvidersCount = PROVIDER_ORDER.filter((p) => settings?.providers?.[p]?.has_key).length;
   const currentInfo = PROVIDER_INFO[activeProvider];
@@ -401,13 +415,22 @@ export const AdminSettingsPage: React.FC<AdminSettingsPageProps> = ({ onNotify }
               </ol>
             </div>
 
+            {saving && <FormStatusBanner variant="loading" message="Menyimpan pengaturan AI ke server..." />}
+            {!saving && hasUnsavedKeyInput && (
+              <FormStatusBanner
+                variant="info"
+                message='Anda memasukkan API Key baru — klik "Simpan Pengaturan AI" di bawah agar tersimpan ke server.'
+              />
+            )}
+            {!saving && statusMsg && <FormStatusBanner variant={statusMsg.type} message={statusMsg.text} />}
+
             <div className="flex justify-end pt-1">
               <button
                 type="submit"
                 disabled={saving}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold shadow-xs cursor-pointer"
               >
-                <Save className="w-4 h-4" />
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Menyimpan...' : 'Simpan Pengaturan AI'}
               </button>
             </div>

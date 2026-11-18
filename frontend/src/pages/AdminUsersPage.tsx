@@ -4,6 +4,7 @@ import {
   Edit3,
   Eye,
   Flame,
+  Loader2,
   Scale,
   Trash2,
   UserPlus,
@@ -18,6 +19,7 @@ import type {
   RoleItem,
 } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from '../components/FormStatusBanner';
 import { PasswordInput } from '../components/PasswordInput';
 import { formatDateId, formatNum, getLocalDateIso } from '../utils/calculators';
 
@@ -40,6 +42,7 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
   const [roleId, setRoleId] = useState<number>(2);
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Monitor User Diet modal
   const [overview, setOverview] = useState<AdminUserOverview | null>(null);
@@ -78,6 +81,7 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
     const userRole = roles.find((r) => r.name === 'user') ?? roles[0];
     setRoleId(userRole ? userRole.id : 2);
     setIsActive(true);
+    setFormError(null);
     setShowForm(true);
   };
 
@@ -88,12 +92,14 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
     setPassword('');
     setRoleId(u.role_id);
     setIsActive(u.is_active);
+    setFormError(null);
     setShowForm(true);
   };
 
   const handleSubmitUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setFormError(null);
     try {
       if (editingUser) {
         await api.updateAdminUser(editingUser.id, {
@@ -117,7 +123,9 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
       setShowForm(false);
       await loadData();
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menyimpan user.');
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan user.';
+      setFormError(msg);
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
@@ -439,15 +447,19 @@ export const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ currentUser, onN
                 Akun Aktif (bisa login)
               </label>
 
+              {saving && <FormStatusBanner variant="loading" message="Menyimpan data akun user ke server..." />}
+              {!saving && formError && <FormStatusBanner variant="error" message={formError} />}
+
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-100 cursor-pointer">
+                <button type="button" disabled={saving} onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer">
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
                 >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {saving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>

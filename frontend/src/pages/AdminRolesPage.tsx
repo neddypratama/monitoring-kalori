@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Edit3, Plus, Shield, Trash2, X } from 'lucide-react';
+import { Check, Edit3, Loader2, Plus, Shield, Trash2, X } from 'lucide-react';
 import type { RoleItem } from '../types';
 import { api } from '../api/client';
+import { FormStatusBanner } from '../components/FormStatusBanner';
 
 interface AdminRolesPageProps {
   onNotify: (type: 'success' | 'error', text: string) => void;
@@ -20,6 +21,7 @@ export const AdminRolesPage: React.FC<AdminRolesPageProps> = ({ onNotify }) => {
   const [canViewAllData, setCanViewAllData] = useState(false);
   const [canViewAuditLogs, setCanViewAuditLogs] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const loadRoles = useCallback(async () => {
     setLoading(true);
@@ -44,6 +46,7 @@ export const AdminRolesPage: React.FC<AdminRolesPageProps> = ({ onNotify }) => {
     setCanManageRoles(false);
     setCanViewAllData(true);
     setCanViewAuditLogs(false);
+    setFormError(null);
     setShowModal(true);
   };
 
@@ -55,12 +58,14 @@ export const AdminRolesPage: React.FC<AdminRolesPageProps> = ({ onNotify }) => {
     setCanManageRoles(r.can_manage_roles);
     setCanViewAllData(r.can_view_all_users_data);
     setCanViewAuditLogs(r.can_view_audit_logs);
+    setFormError(null);
     setShowModal(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setFormError(null);
     try {
       const payload = {
         name: name.trim(),
@@ -80,7 +85,9 @@ export const AdminRolesPage: React.FC<AdminRolesPageProps> = ({ onNotify }) => {
       setShowModal(false);
       await loadRoles();
     } catch (err) {
-      onNotify('error', err instanceof Error ? err.message : 'Gagal menyimpan role.');
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan role.';
+      setFormError(msg);
+      onNotify('error', msg);
     } finally {
       setSaving(false);
     }
@@ -236,15 +243,19 @@ export const AdminRolesPage: React.FC<AdminRolesPageProps> = ({ onNotify }) => {
                 ))}
               </div>
 
+              {saving && <FormStatusBanner variant="loading" message="Menyimpan pengaturan role & hak akses..." />}
+              {!saving && formError && <FormStatusBanner variant="error" message={formError} />}
+
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">
+                <button type="button" disabled={saving} onClick={() => setShowModal(false)} className="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 cursor-pointer">
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold cursor-pointer"
                 >
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                   {saving ? 'Menyimpan...' : 'Simpan Role'}
                 </button>
               </div>
