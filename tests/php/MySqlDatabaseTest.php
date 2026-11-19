@@ -4,6 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/Assert.php';
 require_once dirname(__DIR__, 2) . '/backend/Config.php';
 require_once dirname(__DIR__, 2) . '/backend/Database.php';
+require_once dirname(__DIR__, 2) . '/backend/AuthService.php';
+require_once dirname(__DIR__, 2) . '/backend/Router.php';
 
 echo "Running MySqlDatabaseTest...\n";
 
@@ -94,6 +96,65 @@ Assert::test('query helpers (upsertSetting, upsertWeightLog, insertFavorite) wor
     $row2 = $pdo->query("SELECT weight_kg, notes FROM weight_logs WHERE user_id = {$adminId} AND log_date = '{$date}'")->fetch(PDO::FETCH_ASSOC);
     Assert::approx(69.8, (float) $row2['weight_kg']);
     Assert::equals('Catatan update', $row2['notes']);
+});
+
+Assert::test('AuthService and Router work seamlessly on MySQL database', function () {
+    $pdo = Database::connect();
+
+    // Clean test users except system admin
+    $pdo->exec("DELETE FROM users WHERE username LIKE 'mysql_user_%'");
+
+    // 1. Register new user on MySQL (pending activation)
+    $reg = AuthService::register($pdo, 'mysql_user_1', 'MySQL Test User', 'password123');
+    Assert::true($reg['pending_activation'] ?? false);
+    $newUserId = (int) $reg['user']['id'];
+
+    // 2. Admin activates user
+    $upd = $pdo->prepare("UPDATE users SET is_active = 1 WHERE id = ?");
+    $upd->execute([$newUserId]);
+
+    // 3. User logs in and creates session
+    $login = AuthService::login($pdo, 'mysql_user_1', 'password123');
+    $token = $login['token'];
+    Assert::true(!empty($token));
+
+    // 4. Authenticate session
+    $auth = AuthService::authenticate($pdo, $token);
+    Assert::true($auth !== null);
+    Assert::equals('mysql_user_1', $auth['username']);
+
+    // 5. Create profile & initial weight log on MySQL
+    $res = Router::handle($pdo, 'POST', 'profile', [], [
+        'name' => 'MySQL User',
+        'gender' => 'male',
+        'age' => 28,
+        'height_cm' => 175,
+        'initial_weight_kg' => 75.5,
+        'target_weight_kg' => 70.0,
+        'activity_level' => 'moderate',
+        'goal_type' => 'lose',
+        'program_duration_days' => 60,
+    ], $token);
+    Assert::equals(200, $res['status']);
+    Assert::true($res['payload']['ok']);
+    Assert::true($res['payload']['data']['exists']);
+
+    // 6. Log food on MySQL
+    $foodRes = Router::handle($pdo, 'POST', 'food-logs', [], [
+        'log_date' => '2026-11-19',
+        'meal_type' => 'siang',
+        'food_name' => 'Nasi Padang Spesial',
+        'calories' => 650,
+        'quantity' => 1,
+        'unit' => 'porsi',
+    ], $token);
+    Assert::equals(201, $foodRes['status']);
+    Assert::equals(650, $foodRes['payload']['data']['calories']);
+
+    // 7. Change password on MySQL
+    AuthService::changePassword($pdo, $newUserId, 'password123', 'new_password123');
+    $loginAfter = AuthService::login($pdo, 'mysql_user_1', 'new_password123');
+    Assert::true(!empty($loginAfter['token']));
 });
 
 Assert::summary('MySqlDatabaseTest');

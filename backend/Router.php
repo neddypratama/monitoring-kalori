@@ -267,23 +267,20 @@ final class Router
             $ins->execute([$userId, $name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual, $durationDays, $programStartDate]);
 
             $today = self::validateDate((string) ($body['initial_date'] ?? ''), date('Y-m-d'));
-            $wStmt = $pdo->prepare(
-                "INSERT INTO weight_logs (user_id, log_date, weight_kg, notes) VALUES (?, ?, ?, 'Berat badan awal program')
-                 ON CONFLICT(user_id, log_date) DO NOTHING"
-            );
-            $wStmt->execute([$userId, $today, round($initialWeight, 2)]);
+            Database::insertIgnoreInitialWeightLog($pdo, $userId, $today, round($initialWeight, 2), 'Berat badan awal program');
 
             AuditService::record($pdo, $userId, (string) $authUser['username'], 'create_profile', 'profile', $userId, $userId, "BB {$initialWeight} kg, TB {$heightCm} cm" . ($durationDays ? ", durasi {$durationDays} hari" : ''));
         } else {
+            $now = date('Y-m-d H:i:s');
             $upd = $pdo->prepare(
                 "UPDATE user_profile
                  SET name = ?, gender = ?, age = ?, height_cm = ?, initial_weight_kg = ?, target_weight_kg = ?,
                      activity_level = ?, goal_type = ?, daily_calorie_target = ?, is_manual_target = ?,
                      program_duration_days = ?, program_start_date = ?,
-                     updated_at = datetime('now', 'localtime')
+                     updated_at = ?
                  WHERE user_id = ?"
             );
-            $upd->execute([$name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual, $durationDays, $programStartDate, $userId]);
+            $upd->execute([$name, $gender, $age, $heightCm, $initialWeight, $targetWeight, $activityLevel, $goalType, $manualTarget, $isManual, $durationDays, $programStartDate, $now, $userId]);
             AuditService::record($pdo, $userId, (string) $authUser['username'], 'update_profile', 'profile', $userId, $userId, "Perbarui profil diet (BB awal {$initialWeight} kg, TB {$heightCm} cm" . ($durationDays ? ", durasi {$durationDays} hari" : '') . ')');
         }
 
@@ -336,7 +333,7 @@ final class Router
             ]);
             $id = (int) $pdo->lastInsertId();
             if (!empty($body['is_favorite'])) {
-                $pdo->prepare("INSERT OR IGNORE INTO user_favorites (user_id, item_type, item_id) VALUES (?, 'food', ?)")->execute([$userId, $id]);
+                Database::insertFavorite($pdo, $userId, 'food', $id);
             }
             AuditService::record($pdo, $userId, (string) $authUser['username'], 'create_custom_food', 'food', $id, $userId, "Tambah makanan kustom: {$data['name']}");
             return self::ok(self::fetchFoodForUser($pdo, $id, $userId), 201);
@@ -438,24 +435,16 @@ final class Router
         $actorId = (int) $authUser['id'];
         $actorName = (string) $authUser['username'];
 
-        $upsert = $pdo->prepare(
-            "INSERT INTO app_settings (setting_key, setting_value, updated_at)
-             VALUES (?, ?, datetime('now', 'localtime'))
-             ON CONFLICT(setting_key) DO UPDATE SET
-                setting_value = excluded.setting_value,
-                updated_at = datetime('now', 'localtime')"
-        );
-
         if (array_key_exists('primary_provider', $body)) {
             $prov = strtolower(trim((string) $body['primary_provider']));
             if (!in_array($prov, GeminiFoodService::PROVIDERS, true)) {
                 throw new InvalidArgumentException('Provider AI utama tidak valid.');
             }
-            $upsert->execute(['ai_primary_provider', $prov]);
+            Database::upsertSetting($pdo, 'ai_primary_provider', $prov);
         }
 
         if (array_key_exists('auto_fallback', $body)) {
-            $upsert->execute(['ai_auto_fallback', !empty($body['auto_fallback']) ? '1' : '0']);
+            Database::upsertSetting($pdo, 'ai_auto_fallback', !empty($body['auto_fallback']) ? '1' : '0');
         }
 
         foreach (GeminiFoodService::PROVIDERS as $p) {
@@ -464,11 +453,11 @@ final class Router
             $modelField = "{$p}_model";
 
             if (!empty($body[$clearField])) {
-                $upsert->execute([$keyField, '']);
+                Database::upsertSetting($pdo, $keyField, '');
             } elseif (array_key_exists($keyField, $body)) {
                 $newKey = trim((string) $body[$keyField]);
                 if ($newKey !== '') {
-                    $upsert->execute([$keyField, $newKey]);
+                    Database::upsertSetting($pdo, $keyField, $newKey);
                 }
             }
 
@@ -482,7 +471,7 @@ final class Router
                     if (!$valid) {
                         throw new InvalidArgumentException("Model {$p} tidak valid.");
                     }
-                    $upsert->execute([$modelField, $model]);
+                    Database::upsertSetting($pdo, $modelField, $model);
                 }
             }
         }
@@ -528,7 +517,7 @@ final class Router
             $stmt->execute([$userId, $data['name'], $data['category'], $data['met'], $data['supports_distance'], $data['default_speed_kmh']]);
             $id = (int) $pdo->lastInsertId();
             if (!empty($body['is_favorite'])) {
-                $pdo->prepare("INSERT OR IGNORE INTO user_favorites (user_id, item_type, item_id) VALUES (?, 'activity', ?)")->execute([$userId, $id]);
+                Database::insertFavorite($pdo, $userId, 'activity', $id);
             }
             AuditService::record($pdo, $userId, (string) $authUser['username'], 'create_custom_activity', 'activity', $id, $userId, "Tambah aktivitas kustom: {$data['name']}");
             return self::ok(self::fetchActivityForUser($pdo, $id, $userId), 201);
@@ -746,14 +735,7 @@ final class Router
             }
             $notes = trim((string) ($body['notes'] ?? ''));
 
-            $stmt = $pdo->prepare(
-                "INSERT INTO weight_logs (user_id, log_date, weight_kg, notes) VALUES (?, ?, ?, ?)
-                 ON CONFLICT(user_id, log_date) DO UPDATE SET
-                    weight_kg = excluded.weight_kg,
-                    notes = excluded.notes,
-                    updated_at = datetime('now', 'localtime')"
-            );
-            $stmt->execute([$userId, $date, round($weightKg, 2), $notes]);
+            Database::upsertWeightLog($pdo, $userId, $date, round($weightKg, 2), $notes);
 
             $get = $pdo->prepare('SELECT * FROM weight_logs WHERE user_id = ? AND log_date = ?');
             $get->execute([$userId, $date]);
@@ -1039,18 +1021,19 @@ final class Router
             }
 
             $newPassword = trim((string) ($body['password'] ?? ''));
+            $now = date('Y-m-d H:i:s');
             if ($newPassword !== '') {
                 AuthService::validatePassword($newPassword);
                 $hash = password_hash($newPassword, PASSWORD_DEFAULT);
                 $upd = $pdo->prepare(
-                    "UPDATE users SET username = ?, full_name = ?, role_id = ?, is_active = ?, password_hash = ?, updated_at = datetime('now', 'localtime') WHERE id = ?"
+                    "UPDATE users SET username = ?, full_name = ?, role_id = ?, is_active = ?, password_hash = ?, updated_at = ? WHERE id = ?"
                 );
-                $upd->execute([$username, $fullName, $roleId, $isActive, $hash, $id]);
+                $upd->execute([$username, $fullName, $roleId, $isActive, $hash, $now, $id]);
             } else {
                 $upd = $pdo->prepare(
-                    "UPDATE users SET username = ?, full_name = ?, role_id = ?, is_active = ?, updated_at = datetime('now', 'localtime') WHERE id = ?"
+                    "UPDATE users SET username = ?, full_name = ?, role_id = ?, is_active = ?, updated_at = ? WHERE id = ?"
                 );
-                $upd->execute([$username, $fullName, $roleId, $isActive, $id]);
+                $upd->execute([$username, $fullName, $roleId, $isActive, $now, $id]);
             }
             if ($isActive === 0) {
                 $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$id]);

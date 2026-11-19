@@ -115,10 +115,11 @@ final class AuthService
         if (!$token || trim($token) === '') {
             return null;
         }
+        $now = date('Y-m-d H:i:s');
         $stmt = $pdo->prepare(
-            "SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > datetime('now', 'localtime') LIMIT 1"
+            "SELECT user_id FROM user_sessions WHERE token = ? AND expires_at > ? LIMIT 1"
         );
-        $stmt->execute([$token]);
+        $stmt->execute([$token, $now]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
             return null;
@@ -143,8 +144,9 @@ final class AuthService
             throw new InvalidArgumentException('Password saat ini tidak sesuai.');
         }
         $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-        $upd = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
-        $upd->execute([$newHash, $userId]);
+        $now = date('Y-m-d H:i:s');
+        $upd = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?");
+        $upd->execute([$newHash, $now, $userId]);
 
         AuditService::record($pdo, $userId, (string) $user['username'], 'change_password', 'user', $userId, $userId, 'Mengubah password akun');
     }
@@ -198,7 +200,9 @@ final class AuthService
     public static function createSession(PDO $pdo, int $userId): string
     {
         // Prune expired sessions opportunistically
-        $pdo->exec("DELETE FROM user_sessions WHERE expires_at <= datetime('now', 'localtime')");
+        $now = date('Y-m-d H:i:s');
+        $prune = $pdo->prepare("DELETE FROM user_sessions WHERE expires_at <= ?");
+        $prune->execute([$now]);
         $token = bin2hex(random_bytes(32));
         $expires = (new DateTimeImmutable('+' . self::SESSION_DAYS . ' days'))->format('Y-m-d H:i:s');
         $stmt = $pdo->prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)');
