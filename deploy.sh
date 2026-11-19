@@ -19,8 +19,9 @@ if [ -z "$TARGET_DIR" ] && [ -d "$HOME/public_html/kalori" ]; then
     fi
 fi
 
-echo "🚀 [1/4] Mengambil pembaruan kode terbaru dari GitHub..."
-git pull origin main || git pull origin master
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'main')"
+echo "🚀 [1/4] Mengambil pembaruan kode terbaru dari branch '$CURRENT_BRANCH' di GitHub..."
+git pull origin "$CURRENT_BRANCH" || git pull origin main || git pull origin master
 
 echo ""
 echo "🔍 [2/4] Memeriksa versi PHP, ekstensi wajib, dan file build frontend..."
@@ -58,8 +59,17 @@ if [ -n "$TARGET_DIR" ]; then
     echo "🌐 [4/4] Menyinkronkan aplikasi ke web root: $TARGET_DIR ..."
     mkdir -p "$TARGET_DIR" "$TARGET_DIR/storage"
     cp -f index.php api.php .htaccess sw.js "$TARGET_DIR"/
+    # Cadangkan config.php jika ada di target
+    if [ -f "$TARGET_DIR/backend/config.php" ] && [ ! -f "backend/config.php" ]; then
+        cp -f "$TARGET_DIR/backend/config.php" "$TARGET_DIR/backend/config.php.bak"
+    fi
+
     rm -rf "$TARGET_DIR/backend" "$TARGET_DIR/dist"
     cp -r backend dist "$TARGET_DIR"/
+
+    if [ -f "$TARGET_DIR/backend/config.php.bak" ] && [ ! -f "$TARGET_DIR/backend/config.php" ]; then
+        mv -f "$TARGET_DIR/backend/config.php.bak" "$TARGET_DIR/backend/config.php"
+    fi
     chmod 775 "$TARGET_DIR/storage" 2>/dev/null || chmod 755 "$TARGET_DIR/storage" 2>/dev/null || true
     (cd "$TARGET_DIR" && php -d display_errors=1 backend/migrate.php)
     echo "✅ Sinkronisasi ke $TARGET_DIR selesai (database existing tetap aman)."
