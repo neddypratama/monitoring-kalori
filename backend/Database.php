@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/Config.php';
 require_once __DIR__ . '/SeedData.php';
 
 final class Database
@@ -10,9 +11,35 @@ final class Database
         return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'monitoring_kalori.sqlite';
     }
 
+    public static function getDriver(PDO $pdo): string
+    {
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        return is_string($driver) ? strtolower($driver) : 'sqlite';
+    }
+
+    public static function now(PDO $pdo): string
+    {
+        return date('Y-m-d H:i:s');
+    }
+
     public static function connect(?string $dbPath = null): PDO
     {
-        $path = $dbPath ?? self::defaultPath();
+        // If an explicit path is provided (e.g. :memory: or a specific file for tests), use SQLite
+        if ($dbPath !== null) {
+            return self::connectSqlite($dbPath);
+        }
+
+        // If configured for MySQL, connect to MySQL
+        if (Config::isMySql()) {
+            return self::connectMySql();
+        }
+
+        // Default to SQLite
+        return self::connectSqlite(self::defaultPath());
+    }
+
+    private static function connectSqlite(string $path): PDO
+    {
         if ($path !== ':memory:') {
             $dir = dirname($path);
             if (!is_dir($dir)) {
@@ -28,7 +55,29 @@ final class Database
             $pdo->exec('PRAGMA journal_mode = WAL;');
         }
 
-        self::migrate($pdo);
+        self::migrateSqlite($pdo);
+        self::seedRolesAndAdmin($pdo);
+        SeedData::seedIfEmpty($pdo);
+
+        return $pdo;
+    }
+
+    private static function connectMySql(): PDO
+    {
+        $dsn = Config::getMySqlDsn();
+        $user = (string) Config::get('DB_USERNAME', 'root');
+        $pass = (string) Config::get('DB_PASSWORD', '');
+
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
+        ];
+
+        $pdo = new PDO($dsn, $user, $pass, $options);
+
+        self::migrateMySql($pdo);
         self::seedRolesAndAdmin($pdo);
         SeedData::seedIfEmpty($pdo);
 
@@ -36,6 +85,15 @@ final class Database
     }
 
     public static function migrate(PDO $pdo): void
+    {
+        if (self::getDriver($pdo) === 'mysql') {
+            self::migrateMySql($pdo);
+        } else {
+            self::migrateSqlite($pdo);
+        }
+    }
+
+    private static function migrateSqlite(PDO $pdo): void
     {
         // 1. Auth, RBAC, Favorites, and Audit Log tables
         $pdo->exec(<<<'SQL'
@@ -209,6 +267,181 @@ final class Database
         self::ensureProfileDurationColumns($pdo);
     }
 
+    private static function migrateMySql(PDO $pdo): void
+    {
+        $pdo->exec(<<<'SQL'
+            CREATE TABLE IF NOT EXISTS roles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT NULL,
+                can_manage_users TINYINT(1) NOT NULL DEFAULT 0,
+                can_manage_roles TINYINT(1) NOT NULL DEFAULT 0,
+                can_view_all_users_data TINYINT(1) NOT NULL DEFAULT 0,
+                can_view_audit_logs TINYINT(1) NOT NULL DEFAULT 0,
+                is_system TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(100) NOT NULL UNIQUE,
+                full_name VARCHAR(150) NOT NULL DEFAULT '',
+                password_hash VARCHAR(255) NOT NULL,
+                role_id INT NOT NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_users_role (role_id),
+                FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                token VARCHAR(128) PRIMARY KEY,
+                user_id INT NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_sessions_user (user_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                user_id INT NOT NULL,
+                item_type VARCHAR(20) NOT NULL,
+                item_id INT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, item_type, item_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NULL,
+                username_snapshot VARCHAR(100) NOT NULL DEFAULT 'system',
+                action VARCHAR(100) NOT NULL,
+                entity_type VARCHAR(50) NOT NULL,
+                entity_id INT NULL,
+                target_user_id INT NULL,
+                details TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_audit_logs_user (user_id),
+                INDEX idx_audit_logs_created (created_at),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                setting_key VARCHAR(100) PRIMARY KEY,
+                setting_value LONGTEXT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS user_profile (
+                user_id INT PRIMARY KEY,
+                name VARCHAR(150) NOT NULL DEFAULT '',
+                gender VARCHAR(10) NOT NULL,
+                age INT NOT NULL,
+                height_cm DOUBLE NOT NULL,
+                initial_weight_kg DOUBLE NOT NULL,
+                target_weight_kg DOUBLE NULL,
+                activity_level VARCHAR(20) NOT NULL,
+                goal_type VARCHAR(20) NOT NULL,
+                daily_calorie_target INT NULL,
+                is_manual_target TINYINT(1) NOT NULL DEFAULT 0,
+                program_duration_days INT NULL,
+                program_start_date VARCHAR(20) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS foods (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NULL,
+                name VARCHAR(200) NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                default_unit VARCHAR(30) NOT NULL DEFAULT 'porsi',
+                serving_grams DOUBLE NOT NULL,
+                calories_per_100g DOUBLE NOT NULL,
+                protein_per_100g DOUBLE NOT NULL DEFAULT 0,
+                carbs_per_100g DOUBLE NOT NULL DEFAULT 0,
+                fat_per_100g DOUBLE NOT NULL DEFAULT 0,
+                is_custom TINYINT(1) NOT NULL DEFAULT 0,
+                is_favorite TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_foods_user (user_id),
+                INDEX idx_foods_name (name),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS activities (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NULL,
+                name VARCHAR(200) NOT NULL,
+                category VARCHAR(50) NOT NULL,
+                met DOUBLE NOT NULL,
+                supports_distance TINYINT(1) NOT NULL DEFAULT 0,
+                default_speed_kmh DOUBLE NULL,
+                is_custom TINYINT(1) NOT NULL DEFAULT 0,
+                is_favorite TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_activities_user (user_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS food_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                log_date VARCHAR(20) NOT NULL,
+                meal_type VARCHAR(20) NOT NULL,
+                food_id INT NULL,
+                food_name VARCHAR(200) NOT NULL,
+                quantity DOUBLE NOT NULL,
+                unit VARCHAR(30) NOT NULL,
+                calories INT NOT NULL,
+                protein DOUBLE NOT NULL DEFAULT 0,
+                carbs DOUBLE NOT NULL DEFAULT 0,
+                fat DOUBLE NOT NULL DEFAULT 0,
+                notes TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_food_logs_user_date (user_id, log_date),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (food_id) REFERENCES foods(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                log_date VARCHAR(20) NOT NULL,
+                activity_id INT NULL,
+                activity_name VARCHAR(200) NOT NULL,
+                input_value DOUBLE NOT NULL,
+                input_unit VARCHAR(20) NOT NULL,
+                duration_minutes DOUBLE NOT NULL,
+                distance_meters DOUBLE NULL,
+                weight_kg_used DOUBLE NOT NULL,
+                calories_burned INT NOT NULL,
+                notes TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_activity_logs_user_date (user_id, log_date),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+            CREATE TABLE IF NOT EXISTS weight_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                log_date VARCHAR(20) NOT NULL,
+                weight_kg DOUBLE NOT NULL,
+                notes TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_weight_logs_user_date (user_id, log_date),
+                INDEX idx_weight_logs_user_date (user_id, log_date),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL);
+    }
+
     private static function ensureProfileDurationColumns(PDO $pdo): void
     {
         if (self::tableExists($pdo, 'user_profile')) {
@@ -366,15 +599,27 @@ final class Database
         }
     }
 
-    private static function tableExists(PDO $pdo, string $table): bool
+    public static function tableExists(PDO $pdo, string $table): bool
     {
+        if (self::getDriver($pdo) === 'mysql') {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?');
+            $stmt->execute([$table]);
+            return (int) $stmt->fetchColumn() > 0;
+        }
+
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?");
         $stmt->execute([$table]);
         return (int) $stmt->fetchColumn() > 0;
     }
 
-    private static function hasColumn(PDO $pdo, string $table, string $column): bool
+    public static function hasColumn(PDO $pdo, string $table, string $column): bool
     {
+        if (self::getDriver($pdo) === 'mysql') {
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+            $stmt->execute([$table, $column]);
+            return (int) $stmt->fetchColumn() > 0;
+        }
+
         $rows = $pdo->query("PRAGMA table_info({$table})")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as $r) {
             if (($r['name'] ?? '') === $column) {
@@ -382,5 +627,81 @@ final class Database
             }
         }
         return false;
+    }
+
+    // ==========================================
+    // Query Helpers (Agnostic across MySQL & SQLite)
+    // ==========================================
+
+    public static function getSetting(PDO $pdo, string $key, string $default = ''): string
+    {
+        $stmt = $pdo->prepare('SELECT setting_value FROM app_settings WHERE setting_key = ? LIMIT 1');
+        $stmt->execute([$key]);
+        $val = $stmt->fetchColumn();
+        return ($val !== false && $val !== null) ? (string) $val : $default;
+    }
+
+    public static function upsertSetting(PDO $pdo, string $key, string $value): void
+    {
+        $now = date('Y-m-d H:i:s');
+        if (self::getDriver($pdo) === 'mysql') {
+            $stmt = $pdo->prepare(
+                'INSERT INTO app_settings (setting_key, setting_value, updated_at)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = VALUES(updated_at)'
+            );
+            $stmt->execute([$key, $value, $now]);
+        } else {
+            $stmt = $pdo->prepare(
+                'INSERT INTO app_settings (setting_key, setting_value, updated_at)
+                 VALUES (?, ?, ?)
+                 ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = excluded.updated_at'
+            );
+            $stmt->execute([$key, $value, $now]);
+        }
+    }
+
+    public static function insertFavorite(PDO $pdo, int $userId, string $type, int $itemId): void
+    {
+        $now = date('Y-m-d H:i:s');
+        if (self::getDriver($pdo) === 'mysql') {
+            $stmt = $pdo->prepare('INSERT IGNORE INTO user_favorites (user_id, item_type, item_id, created_at) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$userId, $type, $itemId, $now]);
+        } else {
+            $stmt = $pdo->prepare('INSERT OR IGNORE INTO user_favorites (user_id, item_type, item_id, created_at) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$userId, $type, $itemId, $now]);
+        }
+    }
+
+    public static function upsertWeightLog(PDO $pdo, int $userId, string $date, float $weightKg, string $notes = ''): void
+    {
+        $now = date('Y-m-d H:i:s');
+        if (self::getDriver($pdo) === 'mysql') {
+            $stmt = $pdo->prepare(
+                'INSERT INTO weight_logs (user_id, log_date, weight_kg, notes, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE weight_kg = VALUES(weight_kg), notes = VALUES(notes), updated_at = VALUES(updated_at)'
+            );
+            $stmt->execute([$userId, $date, $weightKg, $notes, $now, $now]);
+        } else {
+            $stmt = $pdo->prepare(
+                'INSERT INTO weight_logs (user_id, log_date, weight_kg, notes, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(user_id, log_date) DO UPDATE SET weight_kg = excluded.weight_kg, notes = excluded.notes, updated_at = excluded.updated_at'
+            );
+            $stmt->execute([$userId, $date, $weightKg, $notes, $now, $now]);
+        }
+    }
+
+    public static function insertIgnoreInitialWeightLog(PDO $pdo, int $userId, string $date, float $weightKg, string $notes = ''): void
+    {
+        $now = date('Y-m-d H:i:s');
+        if (self::getDriver($pdo) === 'mysql') {
+            $stmt = $pdo->prepare('INSERT IGNORE INTO weight_logs (user_id, log_date, weight_kg, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$userId, $date, $weightKg, $notes, $now, $now]);
+        } else {
+            $stmt = $pdo->prepare('INSERT INTO weight_logs (user_id, log_date, weight_kg, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, log_date) DO NOTHING');
+            $stmt->execute([$userId, $date, $weightKg, $notes, $now, $now]);
+        }
     }
 }
