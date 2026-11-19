@@ -13,6 +13,7 @@ storage/*.sqlite-journal
 
 # Local environment / database configs
 backend/config.php
+!backend/Config.php
 .env
 
 # Logs & OS files
