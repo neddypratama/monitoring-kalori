@@ -16,6 +16,9 @@ backend/config.php
 !backend/Config.php
 .env
 
+# Android build artifacts
+android/build/
+
 # Logs & OS files
 *.log
 .DS_Store

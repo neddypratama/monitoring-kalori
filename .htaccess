@@ -3,6 +3,12 @@ Options -Indexes
 # Izinkan file default index.php
 DirectoryIndex index.php index.html
 
+# MIME Types untuk Mobile & PWA
+<IfModule mod_mime.c>
+    AddType application/vnd.android.package-archive .apk
+    AddType application/manifest+json .webmanifest
+</IfModule>
+
 # Blokir akses publik langsung ke folder & file sensitif (.git, database SQLite, source backend/frontend, docs, tests, script)
 <IfModule mod_alias.c>
     RedirectMatch 403 ^/\.git
