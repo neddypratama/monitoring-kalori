@@ -11,6 +11,10 @@ storage/*.sqlite-journal
 # SDD scratch workspace
 .superpowers/
 
+# Local environment / database configs
+backend/config.php
+.env
+
 # Logs & OS files
 *.log
 .DS_Store
