@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Flame, Loader2, Lock, LogIn, UserPlus, User } from 'lucide-react';
+import { Flame, Loader2, Lock, LogIn, UserPlus, User, Smartphone } from 'lucide-react';
 import type { AuthUser } from '../types';
 import { api } from '../api/client';
 import { FormStatusBanner } from './FormStatusBanner';
 import { PasswordInput } from './PasswordInput';
+import { InstallAppModal } from './InstallAppModal';
+import { InstallPromptBanner } from './InstallPromptBanner';
 
 interface AuthViewProps {
   onAuthenticated: (user: AuthUser) => void;
@@ -18,6 +20,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +208,24 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthenticated }) => {
             {submitting ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Daftar Akun'}
           </button>
         </form>
+
+        <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+          <button
+            type="button"
+            onClick={() => setInstallModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-200 text-xs font-bold transition cursor-pointer"
+          >
+            <Smartphone className="w-4 h-4 text-emerald-600" />
+            <span>Download & Pasang Aplikasi (Android & iOS)</span>
+          </button>
+        </div>
       </div>
+
+      <InstallAppModal
+        isOpen={installModalOpen}
+        onClose={() => setInstallModalOpen(false)}
+      />
+      <InstallPromptBanner onOpenModal={() => setInstallModalOpen(true)} />
     </div>
   );
 };

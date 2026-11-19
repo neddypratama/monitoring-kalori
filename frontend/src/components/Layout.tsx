@@ -6,12 +6,12 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
-  Download,
   Flame,
   LayoutDashboard,
   LogOut,
   Scale,
   Shield,
+  Smartphone,
   Sparkles,
   User,
   Users,
@@ -19,6 +19,8 @@ import {
   X,
 } from 'lucide-react';
 import type { AppTab, AuthUser, ToastMessage } from '../types';
+import { InstallAppModal } from './InstallAppModal';
+import { InstallPromptBanner } from './InstallPromptBanner';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -59,6 +61,7 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const [adminSheetOpen, setAdminSheetOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -194,15 +197,13 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         <div className="mt-6 space-y-2">
-          {installPrompt && (
-            <button
-              type="button"
-              onClick={handleInstallApp}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" /> Install Aplikasi
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setInstallModalOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold cursor-pointer transition shadow-2xs"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-emerald-600" /> Pasang / Download App
+          </button>
           <div className="px-3 py-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -261,16 +262,15 @@ export const Layout: React.FC<LayoutProps> = ({
             >
               <Scale className="w-3.5 h-3.5" /> Berat Badan
             </button>
-            {installPrompt && (
-              <button
-                type="button"
-                onClick={handleInstallApp}
-                title="Install Aplikasi"
-                className="p-2 rounded-xl bg-emerald-50 text-emerald-700 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setInstallModalOpen(true)}
+              title="Download / Pasang Aplikasi (Android & iOS)"
+              aria-label="Download / Pasang Aplikasi"
+              className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer transition"
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
             <button
               type="button"
               onClick={onLogout}
@@ -349,16 +349,15 @@ export const Layout: React.FC<LayoutProps> = ({
           >
             <Activity className="w-3.5 h-3.5" /> Gerak
           </button>
-          {installPrompt && (
-            <button
-              type="button"
-              onClick={handleInstallApp}
-              aria-label="Install Aplikasi"
-              className="p-2 rounded-xl bg-emerald-50 text-emerald-700"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setInstallModalOpen(true)}
+            aria-label="Download & Pasang Aplikasi"
+            title="Download & Pasang Aplikasi"
+            className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 active:scale-95 transition cursor-pointer"
+          >
+            <Smartphone className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={onLogout}
@@ -484,6 +483,14 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
       )}
+      {/* ==================== INSTALL APP MODAL & FLOATING BANNER ==================== */}
+      <InstallAppModal
+        isOpen={installModalOpen}
+        onClose={() => setInstallModalOpen(false)}
+        installPrompt={installPrompt}
+        onPromptInstall={handleInstallApp}
+      />
+      <InstallPromptBanner onOpenModal={() => setInstallModalOpen(true)} />
     </div>
   );
 };

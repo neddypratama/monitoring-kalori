@@ -474,4 +474,39 @@ describe('KaloriKu UI flows', () => {
     expect(screen.queryByText('Log Sistem')).not.toBeInTheDocument();
     expect(screen.queryByText('Pengaturan AI')).not.toBeInTheDocument();
   });
+
+  it('opens InstallAppModal with Android APK download link and iPhone Safari guide', async () => {
+    const user = userEvent.setup();
+    render(
+      <Layout
+        activeTab="dashboard"
+        onTabChange={() => {}}
+        authUser={REGULAR_USER}
+        onLogout={() => {}}
+        onQuickFood={() => {}}
+        onQuickActivity={() => {}}
+        onQuickWeight={() => {}}
+        toast={null}
+        onDismissToast={() => {}}
+      >
+        <div>Konten</div>
+      </Layout>
+    );
+
+    const installTrigger = screen.getByRole('button', { name: /Pasang \/ Download App/i });
+    expect(installTrigger).toBeInTheDocument();
+    await user.click(installTrigger);
+
+    expect(screen.getByRole('heading', { name: /Pasang Aplikasi KaloriKu/i })).toBeInTheDocument();
+    expect(screen.getByText(/Download File KaloriKu.apk/i)).toBeInTheDocument();
+
+    const apkLink = screen.getByRole('link', { name: /Download File KaloriKu.apk/i });
+    expect(apkLink).toHaveAttribute('href', '/downloads/KaloriKu.apk');
+
+    // Switch to iPhone tab
+    const iosTab = screen.getByRole('button', { name: /iPhone \(iOS\)/i });
+    await user.click(iosTab);
+    expect(screen.getByText(/Catatan untuk Pengguna iPhone & iPad/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tambah ke Layar Utama/i)).toBeInTheDocument();
+  });
 });

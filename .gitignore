@@ -11,6 +11,9 @@ storage/*.sqlite-journal
 # SDD scratch workspace
 .superpowers/
 
+# Android build artifacts
+android/build/
+
 # Logs & OS files
 *.log
 .DS_Store
